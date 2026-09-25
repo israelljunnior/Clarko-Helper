@@ -38,7 +38,7 @@ public static class HelperEndpoints
         var completion = new ChatCompletionRequest(
             Model: options.Value.SuggestionModel,
             Messages: prompts.BuildNextWordPrompt(request),
-            Temperature: 0.2,
+            Temperature: Temperature.Deterministic.ToValue(),
             MaxTokens: budget.SuggestionMaxTokens,
             ResponseFormat: ResponseFormat.JsonObject,
             Usage: UsageOptions.Included);
@@ -66,7 +66,7 @@ public static class HelperEndpoints
         var completion = new ChatCompletionRequest(
             Model: options.Value.SelectionModel,
             Messages: prompts.BuildSelectionPrompt(request),
-            Temperature: 0.4,
+            Temperature: Temperature.Creative.ToValue(),
             MaxTokens: budget.SelectionMaxTokens,
             ResponseFormat: ResponseFormat.JsonObject,
             Usage: UsageOptions.Included);

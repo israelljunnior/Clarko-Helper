@@ -23,3 +23,23 @@ public sealed class OpenRouterOptions
     [Range(1, 120)]
     public int TimeoutSeconds { get; init; } = 30;
 }
+
+/// <summary>Sampling presets for OpenRouter requests. Use <see cref="TemperatureExtensions.ToValue"/> to get the number sent to the model.</summary>
+public enum Temperature
+{
+    /// <summary>Focused, repeatable output (0.3).</summary>
+    Deterministic,
+
+    /// <summary>More varied, inventive output (0.7).</summary>
+    Creative,
+}
+
+public static class TemperatureExtensions
+{
+    public static double ToValue(this Temperature temperature) => temperature switch
+    {
+        Temperature.Deterministic => 0.3,
+        Temperature.Creative => 0.7,
+        _ => throw new ArgumentOutOfRangeException(nameof(temperature), temperature, null),
+    };
+}
