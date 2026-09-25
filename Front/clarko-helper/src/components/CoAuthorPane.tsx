@@ -1,4 +1,4 @@
-import { DiffText } from '../components/DiffText'
+import { DiffText } from './DiffText'
 import clarkoHead from '../assets/clarko-head.png'
 import type { CoAuthorStatus, Suggestion } from '../hooks/useCoAuthor'
 
