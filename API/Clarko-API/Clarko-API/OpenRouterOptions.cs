@@ -9,10 +9,9 @@ public sealed class OpenRouterOptions
     [Required, Url]
     public string BaseUrl { get; init; } = "https://openrouter.ai/api/v1";
 
-    [Required(ErrorMessage = "OpenRouter:ApiKey is missing. Add it to appsettings.Development.json.")]
+    [Required(ErrorMessage = "OpenRouter:ApiKey is missing. Add it to appsettings.json.")]
     public string ApiKey { get; init; } = string.Empty;
 
-    /// <summary>Shown on the OpenRouter dashboard next to each request.</summary>
     public string AppName { get; init; } = "Clarko Helper";
 
     [Required]
