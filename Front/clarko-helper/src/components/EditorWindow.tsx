@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { CoAuthorPane, type MirrorBlock } from '../hooks/CoAuthorPane'
+import { CoAuthorPane, type MirrorBlock } from './CoAuthorPane'
 import { SelectionPopup } from './SelectionPopup'
 import { useCoAuthor } from '../hooks/useCoAuthor'
 import { MockOpenRouterClient } from '../services/mockOpenRouterClient'
