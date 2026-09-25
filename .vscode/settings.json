@@ -1,0 +1,4 @@
+{
+  "typescript.tsdk": "Front/clarko-helper/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}

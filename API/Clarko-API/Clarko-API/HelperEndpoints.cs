@@ -1,0 +1,143 @@
+using System.Net;
+using Clarko.Helper.Api.Configuration;
+using Clarko.Helper.Api.OpenRouter;
+using Clarko.Helper.Api.Services;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.Options;
+using Refit;
+
+namespace Clarko.Helper.Api.Endpoints;
+
+/// <summary>The two AI helpers the editor calls. Every request is validated and budget-checked first.</summary>
+public static class HelperEndpoints
+{
+    public static IEndpointRouteBuilder MapHelperEndpoints(this IEndpointRouteBuilder app)
+    {
+        var helper = app.MapGroup("/api/helper").WithTags("Helper");
+
+        helper.MapPost("/suggestionautocomplete", SuggestNextWordsAsync).WithName("SuggestionAutocomplete");
+        helper.MapPost("/selectionautocomplete", RefineSelectionAsync).WithName("SelectionAutocomplete");
+
+        return app;
+    }
+
+    /// <summary>Next-word suggestions for the line being typed (GPT-4o mini: fast and cheap).</summary>
+    private static async Task<Results<Ok<NextWordResponse>, ValidationProblem, ProblemHttpResult>> SuggestNextWordsAsync(
+        NextWordRequest request,
+        PromptService prompts,
+        TokenBudgetControlService budget,
+        IOpenRouterApi openRouter,
+        IOptions<OpenRouterOptions> options,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+    {
+        var validation = prompts.ValidateNextWord(request);
+        if (!validation.IsValid) return TypedResults.ValidationProblem(validation.Errors);
+        if (!await budget.HasBudgetAsync(cancellationToken)) return BudgetExhausted();
+
+        var completion = new ChatCompletionRequest(
+            Model: options.Value.SuggestionModel,
+            Messages: prompts.BuildNextWordPrompt(request),
+            Temperature: 0.2,
+            MaxTokens: budget.SuggestionMaxTokens,
+            ResponseFormat: ResponseFormat.JsonObject,
+            Usage: UsageOptions.Included);
+
+        var (response, problem) = await SendAsync(openRouter, budget, completion, loggers, cancellationToken);
+        if (problem is not null) return problem;
+
+        return TypedResults.Ok(new NextWordResponse(prompts.ParseNextWords(response!.FirstContent)));
+    }
+
+    /// <summary>Rewrites the selected text following the author's instruction (GPT-4o: better rewrites).</summary>
+    private static async Task<Results<Ok<SelectionResponse>, ValidationProblem, ProblemHttpResult>> RefineSelectionAsync(
+        SelectionRequest request,
+        PromptService prompts,
+        TokenBudgetControlService budget,
+        IOpenRouterApi openRouter,
+        IOptions<OpenRouterOptions> options,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+    {
+        var validation = prompts.ValidateSelection(request);
+        if (!validation.IsValid) return TypedResults.ValidationProblem(validation.Errors);
+        if (!await budget.HasBudgetAsync(cancellationToken)) return BudgetExhausted();
+
+        var completion = new ChatCompletionRequest(
+            Model: options.Value.SelectionModel,
+            Messages: prompts.BuildSelectionPrompt(request),
+            Temperature: 0.4,
+            MaxTokens: budget.SelectionMaxTokens,
+            ResponseFormat: ResponseFormat.JsonObject,
+            Usage: UsageOptions.Included);
+
+        var (response, problem) = await SendAsync(openRouter, budget, completion, loggers, cancellationToken);
+        if (problem is not null) return problem;
+
+        var revision = prompts.ParseRevision(response!.FirstContent, request.SelectedText);
+        if (revision is null)
+        {
+            return TypedResults.Problem(
+                "The model returned an answer Clarko couldn't use. Try again or rephrase the instruction.",
+                statusCode: StatusCodes.Status502BadGateway);
+        }
+
+        return TypedResults.Ok(new SelectionResponse(revision.Revised, revision.Reason));
+    }
+
+    private static async Task<(ChatCompletionResponse? Response, ProblemHttpResult? Problem)> SendAsync(
+        IOpenRouterApi openRouter,
+        TokenBudgetControlService budget,
+        ChatCompletionRequest request,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+    {
+        var logger = loggers.CreateLogger(typeof(HelperEndpoints));
+
+        try
+        {
+            var response = await openRouter.CreateChatCompletionAsync(request, cancellationToken);
+            budget.RecordSpend(response.Usage);
+
+            logger.LogInformation(
+                "{Model} answered with {Tokens} tokens, cost {Cost} USD",
+                response.Model, response.Usage?.TotalTokens, response.Usage?.Cost);
+
+            return (response, null);
+        }
+        catch (ApiException exception)
+        {
+            logger.LogWarning("OpenRouter returned {Status}: {Body}", exception.StatusCode, exception.Content);
+
+            return (null, exception.StatusCode switch
+            {
+                HttpStatusCode.PaymentRequired => BudgetExhausted(),
+                HttpStatusCode.TooManyRequests => TypedResults.Problem(
+                    "Too many requests to the model. Wait a moment and try again.",
+                    statusCode: StatusCodes.Status429TooManyRequests),
+                _ => TypedResults.Problem(
+                    "The model provider returned an error. Try again.",
+                    statusCode: StatusCodes.Status502BadGateway),
+            });
+        }
+        catch (HttpRequestException exception)
+        {
+            logger.LogWarning(exception, "Could not reach OpenRouter");
+            return (null, TypedResults.Problem(
+                "Couldn't reach the model provider. Check the connection and try again.",
+                statusCode: StatusCodes.Status502BadGateway));
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // HttpClient timeout, not the editor cancelling the request.
+            return (null, TypedResults.Problem(
+                "The model took too long to answer. Try again.",
+                statusCode: StatusCodes.Status504GatewayTimeout));
+        }
+    }
+
+    private static ProblemHttpResult BudgetExhausted() =>
+        TypedResults.Problem(
+            "The AI budget for this demo is used up, so suggestions are paused.",
+            statusCode: StatusCodes.Status402PaymentRequired);
+}

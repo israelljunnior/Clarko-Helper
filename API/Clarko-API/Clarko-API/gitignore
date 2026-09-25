@@ -1,0 +1,7 @@
+bin/
+obj/
+.vs/
+*.user
+
+# Holds the real OpenRouter key. Never commit it.
+appsettings.Development.json
