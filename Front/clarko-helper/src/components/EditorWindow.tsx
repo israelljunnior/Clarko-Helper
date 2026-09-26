@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import Highlight from '@tiptap/extension-highlight'
+import TextAlign from '@tiptap/extension-text-align'
+import { MenuBar } from './MenuBar'
 import { CoAuthorPane, type MirrorBlock } from './CoAuthorPane'
 import { SelectionPopup } from './SelectionPopup'
 import { useCoAuthor } from '../hooks/useCoAuthor'
@@ -23,6 +26,22 @@ interface DocumentSnapshot {
 
 const EMPTY_SNAPSHOT: DocumentSnapshot = { blocks: [], words: 0, characters: 0, lines: 0 }
 
+/** U-turn arrow pointing left; mirrored for redo. */
+function UndoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M6 5 2 9l4 4M2 9h15a4.5 4.5 0 0 1 0 9H9"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export function EditorWindow() {
   // The mock is swapped for the real OpenRouter client once the backend proxy exists.
   const service = useMemo(() => new SuggestionService(new MockOpenRouterClient()), [])
@@ -31,7 +50,11 @@ export function EditorWindow() {
   const [userPane, setUserPane] = useState<HTMLDivElement | null>(null)
 
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [
+      StarterKit,
+      Highlight,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    ],
     content: INITIAL_CONTENT,
     editorProps: {
       attributes: { class: 'writer', 'aria-label': 'Document', spellcheck: 'false' },
@@ -67,6 +90,14 @@ export function EditorWindow() {
         }
       },
     }) ?? EMPTY_SNAPSHOT
+
+  const history = useEditorState({
+    editor,
+    selector: ({ editor: current }) => ({
+      canUndo: current?.can().undo() ?? false,
+      canRedo: current?.can().redo() ?? false,
+    }),
+  })
 
   useEffect(() => {
     if (!editor) return
@@ -105,7 +136,31 @@ export function EditorWindow() {
               />
               {edited && <span className="window__edited"> — Edited</span>}
             </div>
+            <div className="window__actions">
+              <button
+                type="button"
+                className="window__action"
+                title="Undo (Ctrl+Z)"
+                aria-label="Undo"
+                disabled={!history?.canUndo}
+                onClick={() => editor?.chain().focus().undo().run()}
+              >
+                <UndoIcon />
+              </button>
+              <button
+                type="button"
+                className="window__action window__action--redo"
+                title="Redo (Ctrl+Y)"
+                aria-label="Redo"
+                disabled={!history?.canRedo}
+                onClick={() => editor?.chain().focus().redo().run()}
+              >
+                <UndoIcon />
+              </button>
+            </div>
           </header>
+
+          {editor && <MenuBar editor={editor} />}
 
           <div className="window__panes">
             <section className="pane pane--user" aria-label="Your document">

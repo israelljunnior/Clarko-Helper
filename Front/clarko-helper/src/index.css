@@ -107,6 +107,50 @@ body,
 .light--minimize { background: #febc2e; }
 .light--zoom { background: #28c840; }
 
+.window__actions {
+  position: absolute;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+}
+
+.window__action {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(124, 196, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(124, 196, 255, 0.16);
+  color: var(--user);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.window__action:hover:not(:disabled) {
+  background: var(--user);
+  color: #1a0b45;
+}
+
+.window__action:focus-visible {
+  outline: 2px solid var(--user);
+  outline-offset: 2px;
+}
+
+.window__action:disabled {
+  border-color: var(--divider);
+  background: rgba(214, 196, 255, 0.06);
+  color: var(--ink-faint);
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Same arrow as undo, flipped to turn right. */
+.window__action--redo svg {
+  transform: scaleX(-1);
+}
+
 .window__title {
   display: flex;
   align-items: center;
@@ -144,6 +188,58 @@ body,
   margin-left: 4px;
   font-weight: 400;
   color: var(--ink-faint);
+}
+
+.menubar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 8px 16px;
+  border-block: 1px solid var(--divider);
+}
+
+.menubar__group {
+  display: flex;
+  gap: 6px;
+}
+
+.menubar__group + .menubar__group {
+  padding-left: 14px;
+  border-left: 1px solid var(--divider);
+}
+
+.menubar__button {
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(214, 196, 255, 0.1);
+  color: #fff;
+  font: 500 13px/1.2 var(--font-ui);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.menubar__button:hover {
+  background: rgba(214, 196, 255, 0.2);
+}
+
+.menubar__button:focus-visible {
+  outline: 2px solid var(--user);
+  outline-offset: 2px;
+}
+
+.menubar__button.is-active {
+  border-color: rgba(124, 196, 255, 0.6);
+  background: rgba(124, 196, 255, 0.35);
+}
+
+.writer mark {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: rgba(255, 184, 107, 0.35);
+  color: inherit;
 }
 
 .window__panes {
