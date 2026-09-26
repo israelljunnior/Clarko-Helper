@@ -465,27 +465,47 @@ body,
   border-bottom: 1px dashed rgba(255, 184, 107, 0.5);
 }
 
+/* The suggested words and their options, anchored together at the cursor's spot in the paragraph. */
+.mirror__ghost-anchor {
+  position: relative;
+}
+
+/* A small dropdown right under the suggested words, drawn over the lines below instead of pushing them down. */
 .completion {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
+  flex-direction: column;
+  gap: 4px;
+  width: max-content;
+  max-width: 240px;
+  padding: 6px;
   font-family: var(--font-ui);
   font-size: 12px;
+  font-weight: normal;
   line-height: 1.4;
-  white-space: normal;
+  letter-spacing: 0;
+  white-space: nowrap;
+  background: #251056;
+  border: 1px solid rgba(255, 184, 107, 0.3);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(8, 2, 30, 0.55);
 }
 
 .completion__option {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 10px;
   font: inherit;
+  text-align: left;
   color: var(--ink-muted);
   background: rgba(255, 184, 107, 0.08);
   border: 1px solid rgba(255, 184, 107, 0.25);
-  border-radius: 999px;
+  border-radius: 6px;
   cursor: pointer;
 }
 

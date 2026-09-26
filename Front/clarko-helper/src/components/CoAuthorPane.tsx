@@ -149,34 +149,38 @@ export function CoAuthorPane({
                   <>
                     <StyledText segments={before} />
                     {hasCompletion && (
-                      <>
+                      // The options hang right under the suggested words, over the text below them.
+                      <span className="mirror__ghost-anchor">
                         <ClarkoCaret />
                         <span className="mirror__ghost" style={fontBefore(before)}>
                           {completion.options[0]}
                         </span>
-                      </>
+                        <span
+                          className="completion"
+                          aria-live="polite"
+                          // Keep clicks and keys here from reaching the paragraph, which would select it for review.
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
+                        >
+                          {completion.options.map((option, optionIndex) => (
+                            <button
+                              key={option}
+                              type="button"
+                              className={optionIndex === 0 ? 'completion__option is-primary' : 'completion__option'}
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => onAcceptCompletion(option)}
+                            >
+                              {option.trim()}
+                              {optionIndex === 0 && <kbd>Tab</kbd>}
+                            </button>
+                          ))}
+                        </span>
+                      </span>
                     )}
                     <StyledText segments={after} />
                   </>
                 )}
               </div>
-
-              {hasCompletion && (
-                <div className="completion" aria-live="polite">
-                  {completion.options.map((option, optionIndex) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className={optionIndex === 0 ? 'completion__option is-primary' : 'completion__option'}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => onAcceptCompletion(option)}
-                    >
-                      {option.trim()}
-                      {optionIndex === 0 && <kbd>Tab</kbd>}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           )
         })}
