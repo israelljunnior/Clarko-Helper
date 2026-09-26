@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { TextSelection, type EditorState } from '@tiptap/pm/state'
 import type { SuggestionService, TextSuggestion } from '../services/suggestionService'
+import { ApiError } from '../services/api'
 
 const ANOTHER_VERSION = 'Give me a different version'
 
@@ -19,6 +20,8 @@ export interface SelectionSession extends SelectionRange {
   versions: (string | null)[]
   phase: SelectionPhase
   suggestion: TextSuggestion | null
+  /** What went wrong, when `phase` is 'error'. */
+  error?: string
 }
 
 /** A selection the AI can edit: non-empty text inside a single paragraph or heading. */
@@ -67,8 +70,10 @@ export function useSelectionEdit(editor: Editor, service: SuggestionService) {
         )
         if (controller.signal.aborted) return
         commit({ ...next, phase: suggestion ? 'ready' : 'unchanged', suggestion })
-      } catch {
-        if (!controller.signal.aborted) commit({ ...next, phase: 'error', suggestion: null })
+      } catch (error) {
+        if (controller.signal.aborted) return
+        const message = error instanceof ApiError ? error.message : 'Something went wrong. Try again.'
+        commit({ ...next, phase: 'error', suggestion: null, error: message })
       }
     },
     [commit, service],

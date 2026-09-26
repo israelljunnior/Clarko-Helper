@@ -347,7 +347,9 @@ function SessionView({ session, onAccept, onReject, onRetry }: SessionViewProps)
 
       {session.phase === 'error' && (
         <div className="selection-popup__row">
-          <span className="selection-popup__note selection-popup__note--error">Couldn’t reach the model.</span>
+          <span className="selection-popup__note selection-popup__note--error">
+            {session.error ?? 'Something went wrong. Try again.'}
+          </span>
           <button type="button" className="button" onClick={onRetry}>
             Retry
           </button>

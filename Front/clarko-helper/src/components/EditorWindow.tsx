@@ -9,9 +9,8 @@ import { CoAuthorPane, type MirrorBlock, type MirrorSegment } from './CoAuthorPa
 import { SelectionPopup, type ClarkoAnchor } from './SelectionPopup'
 import { useAutocomplete } from '../hooks/useAutocomplete'
 import { getBlockAt, getFullySelectedBlock } from '../hooks/editorBlocks'
-import { MockOpenRouterClient } from '../services/mockOpenRouterClient'
 import { SuggestionService } from '../services/suggestionService'
-import { MockCompletionService } from '../services/completionService'
+import { helperApi } from '../services/api'
 import clarkoLogo from '../assets/clarko-logo.png'
 
 const INITIAL_CONTENT = `
@@ -30,9 +29,9 @@ interface DocumentSnapshot {
 const EMPTY_SNAPSHOT: DocumentSnapshot = { blocks: [], words: 0, characters: 0, lines: 0 }
 
 export function EditorWindow() {
-  // The mock is swapped for the real OpenRouter client once the backend proxy exists.
-  const service = useMemo(() => new SuggestionService(new MockOpenRouterClient()), [])
-  const completions = useMemo(() => new MockCompletionService(), [])
+  // Both AI helpers talk to the Clarko API; its address comes from src/environments/environment.ts.
+  const service = useMemo(() => new SuggestionService(helperApi), [])
+  const completions = helperApi
   const [title, setTitle] = useState('')
   const [edited, setEdited] = useState(false)
   const [userPane, setUserPane] = useState<HTMLDivElement | null>(null)
