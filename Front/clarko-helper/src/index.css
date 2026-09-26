@@ -107,50 +107,6 @@ body,
 .light--minimize { background: #febc2e; }
 .light--zoom { background: #28c840; }
 
-.window__actions {
-  position: absolute;
-  right: 12px;
-  display: flex;
-  gap: 6px;
-}
-
-.window__action {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid rgba(124, 196, 255, 0.35);
-  border-radius: 8px;
-  background: rgba(124, 196, 255, 0.16);
-  color: var(--user);
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
-
-.window__action:hover:not(:disabled) {
-  background: var(--user);
-  color: #1a0b45;
-}
-
-.window__action:focus-visible {
-  outline: 2px solid var(--user);
-  outline-offset: 2px;
-}
-
-.window__action:disabled {
-  border-color: var(--divider);
-  background: rgba(214, 196, 255, 0.06);
-  color: var(--ink-faint);
-  opacity: 0.6;
-  cursor: default;
-}
-
-/* Same arrow as undo, flipped to turn right. */
-.window__action--redo svg {
-  transform: scaleX(-1);
-}
-
 .window__title {
   display: flex;
   align-items: center;
@@ -208,6 +164,44 @@ body,
 .menubar__group + .menubar__group {
   padding-left: 14px;
   border-left: 1px solid var(--divider);
+}
+
+/* Undo and redo lead the menu bar, in the author's blue so they stand out from the formatting buttons. */
+.menubar__history {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(124, 196, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(124, 196, 255, 0.16);
+  color: #fff;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+/* Stays white on hover, like the other menu bar buttons; only the blue deepens. */
+.menubar__history:hover:not(:disabled) {
+  background: rgba(124, 196, 255, 0.35);
+}
+
+.menubar__history:focus-visible {
+  outline: 2px solid var(--user);
+  outline-offset: 2px;
+}
+
+.menubar__history:disabled {
+  border-color: var(--divider);
+  background: rgba(214, 196, 255, 0.06);
+  color: var(--ink-faint);
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Same arrow as undo, flipped to turn right. */
+.menubar__history--redo svg {
+  transform: scaleX(-1);
 }
 
 .menubar__select {

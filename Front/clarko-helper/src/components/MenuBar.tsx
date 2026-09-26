@@ -76,6 +76,22 @@ const FONT_FAMILIES = [
 
 const FONT_SIZES = ['', '12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px']
 
+/** U-turn arrow pointing left; mirrored for redo. */
+function UndoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M6 5 2 9l4 4M2 9h15a4.5 4.5 0 0 1 0 9H9"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 interface SelectProps {
   label: string
   value: string
@@ -122,6 +138,14 @@ export function MenuBar({ editor }: { editor: Editor }) {
     },
   })
 
+  const history = useEditorState({
+    editor,
+    selector: ({ editor: current }) => ({
+      canUndo: current.can().undo(),
+      canRedo: current.can().redo(),
+    }),
+  })
+
   const setFamily = (family: string) => {
     const chain = editor.chain().focus()
     void (family ? chain.setFontFamily(family) : chain.unsetFontFamily()).run()
@@ -134,6 +158,28 @@ export function MenuBar({ editor }: { editor: Editor }) {
 
   return (
     <div className="menubar" role="toolbar" aria-label="Formatting">
+      <div className="menubar__group">
+        <button
+          type="button"
+          className="menubar__history"
+          title="Undo (Ctrl+Z)"
+          aria-label="Undo"
+          disabled={!history.canUndo}
+          onClick={() => editor.chain().focus().undo().run()}
+        >
+          <UndoIcon />
+        </button>
+        <button
+          type="button"
+          className="menubar__history menubar__history--redo"
+          title="Redo (Ctrl+Y)"
+          aria-label="Redo"
+          disabled={!history.canRedo}
+          onClick={() => editor.chain().focus().redo().run()}
+        >
+          <UndoIcon />
+        </button>
+      </div>
       <div className="menubar__group">
         <MenuSelect label="Font family" value={font.family} options={FONT_FAMILIES} onChange={setFamily} />
         <MenuSelect
