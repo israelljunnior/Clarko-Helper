@@ -1,6 +1,7 @@
 using Clarko_API.Interface;
 using Clarko_API.Models;
 using Clarko_API.Options;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Refit;
@@ -26,6 +27,12 @@ public sealed class TokenBudgetControlService(
 
     public int SuggestionMaxTokens => _options.SuggestionMaxTokens;
     public int SelectionMaxTokens => _options.SelectionMaxTokens;
+
+    /// <summary>The 402 the endpoints return when the budget is used up, whether we or OpenRouter noticed first.</summary>
+    public static ProblemHttpResult BudgetExhausted() =>
+        TypedResults.Problem(
+            "The AI budget for this demo is used up, so suggestions are paused.",
+            statusCode: StatusCodes.Status402PaymentRequired);
 
     /// <summary>True while more than the configured safety margin is left under both limits.</summary>
     public async Task<bool> HasBudgetAsync(CancellationToken cancellationToken)
