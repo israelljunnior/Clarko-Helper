@@ -7,8 +7,10 @@ import { MenuBar } from './MenuBar'
 import { CoAuthorPane, type MirrorBlock } from './CoAuthorPane'
 import { SelectionPopup } from './SelectionPopup'
 import { useCoAuthor } from '../hooks/useCoAuthor'
+import { useAutocomplete } from '../hooks/useAutocomplete'
 import { MockOpenRouterClient } from '../services/mockOpenRouterClient'
 import { SuggestionService } from '../services/suggestionService'
+import { MockCompletionService } from '../services/completionService'
 import clarkoLogo from '../assets/clarko-logo.png'
 
 const INITIAL_CONTENT = `
@@ -45,6 +47,7 @@ function UndoIcon() {
 export function EditorWindow() {
   // The mock is swapped for the real OpenRouter client once the backend proxy exists.
   const service = useMemo(() => new SuggestionService(new MockOpenRouterClient()), [])
+  const completions = useMemo(() => new MockCompletionService(), [])
   const [title, setTitle] = useState('')
   const [edited, setEdited] = useState(false)
   const [userPane, setUserPane] = useState<HTMLDivElement | null>(null)
@@ -62,6 +65,7 @@ export function EditorWindow() {
   })
 
   const coAuthor = useCoAuthor(editor, service)
+  const autocomplete = useAutocomplete(editor, completions, coAuthor.reviewed)
 
   const snapshot =
     useEditorState({
@@ -179,8 +183,10 @@ export function EditorWindow() {
               status={coAuthor.status}
               activeBlock={coAuthor.activeBlock}
               suggestion={coAuthor.suggestion}
+              completion={autocomplete.completion}
               onAccept={coAuthor.accept}
               onReject={coAuthor.reject}
+              onAcceptCompletion={autocomplete.accept}
             />
           </div>
 

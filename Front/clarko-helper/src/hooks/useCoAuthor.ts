@@ -14,36 +14,44 @@ export interface Suggestion {
   reason: string
 }
 
+/** A paragraph Clarko found nothing to fix in, and the exact text it approved. */
+export interface ReviewedBlock {
+  blockIndex: number
+  text: string
+}
+
 interface CoAuthorState {
   status: CoAuthorStatus
   activeBlock: number | null
   suggestion: Suggestion | null
+  reviewed: ReviewedBlock | null
 }
 
 type CoAuthorAction =
   | { type: 'reading'; blockIndex: number }
   | { type: 'suggested'; suggestion: Suggestion }
-  | { type: 'reviewed' }
+  | { type: 'reviewed'; block: ReviewedBlock }
   | { type: 'failed' }
   | { type: 'cancelled' }
   | { type: 'cleared' }
 
-const initialState: CoAuthorState = { status: 'idle', activeBlock: null, suggestion: null }
+const initialState: CoAuthorState = { status: 'idle', activeBlock: null, suggestion: null, reviewed: null }
 
 function reducer(state: CoAuthorState, action: CoAuthorAction): CoAuthorState {
   switch (action.type) {
     case 'reading':
-      return { ...state, status: 'reading', activeBlock: action.blockIndex }
+      return { ...state, status: 'reading', activeBlock: action.blockIndex, reviewed: null }
     case 'suggested':
       return {
         status: 'suggesting',
         activeBlock: action.suggestion.blockIndex,
         suggestion: action.suggestion,
+        reviewed: null,
       }
     case 'reviewed':
-      return { ...state, status: 'reviewed', activeBlock: null }
+      return { ...state, status: 'reviewed', activeBlock: null, reviewed: action.block }
     case 'failed':
-      return { ...state, status: 'error', activeBlock: null }
+      return { ...state, status: 'error', activeBlock: null, reviewed: null }
     case 'cancelled':
       return state.status === 'reading' ? { ...state, status: 'idle', activeBlock: null } : state
     case 'cleared':
@@ -51,7 +59,7 @@ function reducer(state: CoAuthorState, action: CoAuthorAction): CoAuthorState {
   }
 }
 
-interface BlockRange {
+export interface BlockRange {
   index: number
   from: number
   to: number
@@ -59,7 +67,7 @@ interface BlockRange {
 }
 
 /** The top-level paragraph or heading the cursor is in. Lists, quotes and code are skipped for now. */
-function getCurrentBlock(editor: Editor): BlockRange | null {
+export function getCurrentBlock(editor: Editor): BlockRange | null {
   const { $from } = editor.state.selection
   if ($from.depth < 1) return null
 
@@ -88,7 +96,7 @@ function findUnchangedBlock(editor: Editor, index: number, expectedText: string)
 }
 
 /** Inputs outside the editor (title, popup prompt) keep Tab and Esc for themselves. */
-function isOtherTextField(target: EventTarget | null, editorDom: HTMLElement): boolean {
+export function isOtherTextField(target: EventTarget | null, editorDom: HTMLElement): boolean {
   if (!(target instanceof HTMLElement) || editorDom.contains(target)) return false
   return target.matches('input, textarea, select') || target.isContentEditable
 }
@@ -131,7 +139,7 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
         if (result) {
           dispatch({ type: 'suggested', suggestion: { blockIndex: block.index, original: block.text, ...result } })
         } else {
-          dispatch({ type: 'reviewed' })
+          dispatch({ type: 'reviewed', block: { blockIndex: block.index, text: block.text } })
         }
       } catch {
         if (!controller.signal.aborted) dispatch({ type: 'failed' })
@@ -181,11 +189,20 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
         return true
       })
       .run()
+
+    // An accepted fix is Clarko's own wording, so the paragraph now reads well.
+    dispatch({ type: 'reviewed', block: { blockIndex: suggestion.blockIndex, text: suggestion.revised } })
   }, [editor])
 
   const reject = useCallback(() => {
+    const suggestion = suggestionRef.current
     dispatch({ type: 'cleared' })
     editor?.commands.focus()
+
+    // The author chose to keep their wording, so treat the paragraph as reading well and move on to autocomplete.
+    if (editor && suggestion && findUnchangedBlock(editor, suggestion.blockIndex, suggestion.original)) {
+      dispatch({ type: 'reviewed', block: { blockIndex: suggestion.blockIndex, text: suggestion.original } })
+    }
   }, [editor])
 
   // Tab accepts and Esc rejects, even when focus has left the editor (e.g. after renaming the title).
