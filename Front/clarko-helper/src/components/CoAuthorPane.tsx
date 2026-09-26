@@ -1,12 +1,53 @@
+import type { CSSProperties } from 'react'
 import { DiffText } from './DiffText'
 import clarkoHead from '../assets/clarko-head.png'
 import type { CoAuthorStatus, ReviewedBlock, Suggestion } from '../hooks/useCoAuthor'
 import type { Completion } from '../hooks/useAutocomplete'
 
+/** A run of text with the same font, so Clarko's view matches the author's formatting. */
+export interface MirrorSegment {
+  text: string
+  fontFamily: string | null
+  fontSize: string | null
+}
+
 export interface MirrorBlock {
   type: string
   level: number | null
   text: string
+  segments: MirrorSegment[]
+}
+
+function fontStyle({ fontFamily, fontSize }: MirrorSegment): CSSProperties | undefined {
+  if (!fontFamily && !fontSize) return undefined
+  return { fontFamily: fontFamily ?? undefined, fontSize: fontSize ?? undefined }
+}
+
+/** The block's text with each run in its own font. */
+function StyledText({ block }: { block: MirrorBlock }) {
+  if (!block.text) return '\u00a0'
+  return block.segments.map((segment, i) => (
+    <span key={i} style={fontStyle(segment)}>
+      {segment.text}
+    </span>
+  ))
+}
+
+/** Suggested next words are inserted at the end of the line, so they take the font found there. */
+function endFontStyle(block: MirrorBlock): CSSProperties | undefined {
+  const last = block.segments.at(-1)
+  return last ? fontStyle(last) : undefined
+}
+
+/**
+ * A suggestion diff is plain text, so it can only keep a font the whole paragraph shares.
+ * Mixed fonts fall back to the default while the diff is showing.
+ */
+function sharedFontStyle(block: MirrorBlock): CSSProperties | undefined {
+  const [first, ...rest] = block.segments
+  if (!first) return undefined
+  const uniform = rest.every((s) => s.fontFamily === first.fontFamily && s.fontSize === first.fontSize)
+  return uniform ? fontStyle(first) : undefined
 }
 
 interface CoAuthorPaneProps {
@@ -84,9 +125,11 @@ export function CoAuthorPane({
           // Clarko "selects" the paragraph it is reading or has a suggestion for.
           const isSelected = isActive || hasSuggestion
           const content = hasSuggestion ? (
-            <DiffText original={suggestion.original} revised={suggestion.revised} />
+            <span style={sharedFontStyle(block)}>
+              <DiffText original={suggestion.original} revised={suggestion.revised} />
+            </span>
           ) : (
-            block.text || '\u00a0'
+            <StyledText block={block} />
           )
           return (
             <div key={index} className={blockClassName(block, isActive)}>
@@ -94,7 +137,7 @@ export function CoAuthorPane({
                 <div className="mirror__selected">
                   <ClarkoCaret span />
                   <span className="mirror__selection">{content}</span>
-                  {hasCompletion && <span className="mirror__ghost">{completion.options[0]}</span>}
+                  {hasCompletion && <span className="mirror__ghost" style={endFontStyle(block)}>{completion.options[0]}</span>}
                 </div>
               ) : (
                 <>
@@ -102,7 +145,7 @@ export function CoAuthorPane({
                   {hasCompletion && (
                     <>
                       <ClarkoCaret />
-                      <span className="mirror__ghost">{completion.options[0]}</span>
+                      <span className="mirror__ghost" style={endFontStyle(block)}>{completion.options[0]}</span>
                     </>
                   )}
                 </>

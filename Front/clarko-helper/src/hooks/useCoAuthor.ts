@@ -98,6 +98,16 @@ function findUnchangedBlock(editor: Editor, index: number, expectedText: string)
   return { index, from: offset + 1, to: offset + node.nodeSize - 1, text: node.textContent }
 }
 
+/** True when `current` can be made from `approved` only by deleting characters, never adding any. */
+function isDeletionOf(approved: string, current: string): boolean {
+  if (current.length > approved.length) return false
+  let i = 0
+  for (const char of approved) {
+    if (char === current[i]) i++
+  }
+  return i === current.length
+}
+
 /** Inputs outside the editor (title, popup prompt) keep Tab and Esc for themselves. */
 export function isOtherTextField(target: EventTarget | null, editorDom: HTMLElement): boolean {
   if (!(target instanceof HTMLElement) || editorDom.contains(target)) return false
@@ -112,6 +122,18 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
   /** Every edit the author rejected in this document, so Clarko never offers it twice. */
   const rejectedChanges = useRef(new Set<string>())
   const reviewRef = useRef<((block: BlockRange) => void) | null>(null)
+  /** The latest text Clarko approved in each paragraph, by paragraph index. */
+  const approvedTexts = useRef(new Map<number, string>())
+  const reviewedRef = useRef<ReviewedBlock | null>(null)
+
+  useEffect(() => {
+    reviewedRef.current = state.reviewed
+  }, [state.reviewed])
+
+  const markReviewed = useCallback((block: ReviewedBlock) => {
+    approvedTexts.current.set(block.blockIndex, block.text)
+    dispatch({ type: 'reviewed', block })
+  }, [])
 
   useEffect(() => {
     suggestionRef.current = state.suggestion
@@ -147,7 +169,7 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
             suggestion: { blockIndex: block.index, original: block.text, revised, reason: result.reason },
           })
         } else {
-          dispatch({ type: 'reviewed', block: { blockIndex: block.index, text: block.text, skipped } })
+          markReviewed({ blockIndex: block.index, text: block.text, skipped })
         }
       } catch {
         if (!controller.signal.aborted) dispatch({ type: 'failed' })
@@ -162,6 +184,16 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
       const block = getCurrentBlock(editor)
       if (!block || block.text.trim().length < MIN_PARAGRAPH_CHARS) return
       if (block.text === lastReviewedText.current) return
+
+      // Deleting from a paragraph that already reads well adds nothing new to review.
+      const approved = approvedTexts.current.get(block.index)
+      if (approved !== undefined && isDeletionOf(approved, block.text)) {
+        lastReviewedText.current = block.text
+        const previous = reviewedRef.current
+        const skipped = previous?.blockIndex === block.index ? previous.skipped : []
+        markReviewed({ blockIndex: block.index, text: block.text, skipped })
+        return
+      }
 
       void review(block)
     }
@@ -195,7 +227,7 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
       clearTimeout(timer)
       inFlight?.abort()
     }
-  }, [editor, service])
+  }, [editor, service, markReviewed])
 
   const accept = useCallback(() => {
     const suggestion = suggestionRef.current
@@ -216,8 +248,8 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
       .run()
 
     // An accepted fix is Clarko's own wording, so the paragraph now reads well.
-    dispatch({ type: 'reviewed', block: { blockIndex: suggestion.blockIndex, text: suggestion.revised, skipped: [] } })
-  }, [editor])
+    markReviewed({ blockIndex: suggestion.blockIndex, text: suggestion.revised, skipped: [] })
+  }, [editor, markReviewed])
 
   const reject = useCallback(() => {
     const suggestion = suggestionRef.current
@@ -232,9 +264,9 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
 
     // The author chose to keep their wording, so treat the paragraph as reading well and move on to autocomplete.
     if (findUnchangedBlock(editor, suggestion.blockIndex, suggestion.original)) {
-      dispatch({ type: 'reviewed', block: { blockIndex: suggestion.blockIndex, text: suggestion.original, skipped } })
+      markReviewed({ blockIndex: suggestion.blockIndex, text: suggestion.original, skipped })
     }
-  }, [editor])
+  }, [editor, markReviewed])
 
   /** Forgets the rejections held back for the approved paragraph and reviews it from scratch. */
   const reviewAgain = useCallback(() => {

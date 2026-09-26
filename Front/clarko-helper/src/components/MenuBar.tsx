@@ -64,6 +64,45 @@ const GROUPS: MenuItem[][] = [
 
 const ITEMS = GROUPS.flat()
 
+// An empty value means "use the editor's default" and removes the style.
+const FONT_FAMILIES = [
+  { label: 'Default', value: '' },
+  { label: 'Sans serif', value: "'Segoe UI', system-ui, sans-serif" },
+  { label: 'Serif', value: "Georgia, 'Times New Roman', serif" },
+  { label: 'Monospace', value: "'Courier New', monospace" },
+  { label: 'Arial', value: 'Arial, Helvetica, sans-serif' },
+  { label: 'Verdana', value: 'Verdana, Geneva, sans-serif' },
+]
+
+const FONT_SIZES = ['', '12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px']
+
+interface SelectProps {
+  label: string
+  value: string
+  options: { label: string; value: string }[]
+  onChange: (value: string) => void
+}
+
+function MenuSelect({ label, value, options, onChange }: SelectProps) {
+  // A value outside the list (e.g. pasted text) shows as Default rather than a blank select.
+  const known = options.some((option) => option.value === value) ? value : ''
+  return (
+    <select
+      className="menubar__select"
+      aria-label={label}
+      title={label}
+      value={known}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 /** Formatting toolbar for the document; buttons light up for the formats at the cursor. */
 export function MenuBar({ editor }: { editor: Editor }) {
   const active = useEditorState({
@@ -72,8 +111,38 @@ export function MenuBar({ editor }: { editor: Editor }) {
       Object.fromEntries(ITEMS.map((item) => [item.label, item.isActive(current)])),
   })
 
+  const font = useEditorState({
+    editor,
+    selector: ({ editor: current }) => {
+      const { fontFamily, fontSize } = current.getAttributes('textStyle') as {
+        fontFamily?: string
+        fontSize?: string
+      }
+      return { family: fontFamily ?? '', size: fontSize ?? '' }
+    },
+  })
+
+  const setFamily = (family: string) => {
+    const chain = editor.chain().focus()
+    void (family ? chain.setFontFamily(family) : chain.unsetFontFamily()).run()
+  }
+
+  const setSize = (size: string) => {
+    const chain = editor.chain().focus()
+    void (size ? chain.setFontSize(size) : chain.unsetFontSize()).run()
+  }
+
   return (
     <div className="menubar" role="toolbar" aria-label="Formatting">
+      <div className="menubar__group">
+        <MenuSelect label="Font family" value={font.family} options={FONT_FAMILIES} onChange={setFamily} />
+        <MenuSelect
+          label="Font size"
+          value={font.size}
+          options={FONT_SIZES.map((size) => ({ label: size ? size.replace('px', '') : 'Size', value: size }))}
+          onChange={setSize}
+        />
+      </div>
       {GROUPS.map((group, groupIndex) => (
         <div className="menubar__group" key={groupIndex}>
           {group.map((item) => {

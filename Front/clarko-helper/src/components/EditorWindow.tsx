@@ -3,8 +3,9 @@ import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Highlight from '@tiptap/extension-highlight'
 import TextAlign from '@tiptap/extension-text-align'
+import { FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
 import { MenuBar } from './MenuBar'
-import { CoAuthorPane, type MirrorBlock } from './CoAuthorPane'
+import { CoAuthorPane, type MirrorBlock, type MirrorSegment } from './CoAuthorPane'
 import { SelectionPopup } from './SelectionPopup'
 import { useCoAuthor } from '../hooks/useCoAuthor'
 import { useAutocomplete } from '../hooks/useAutocomplete'
@@ -57,6 +58,9 @@ export function EditorWindow() {
       StarterKit,
       Highlight,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextStyle,
+      FontFamily,
+      FontSize,
     ],
     content: INITIAL_CONTENT,
     editorProps: {
@@ -77,10 +81,25 @@ export function EditorWindow() {
         const blocks: MirrorBlock[] = []
         doc.forEach((node) => {
           const level: unknown = node.attrs.level
+
+          // Group the paragraph's text into runs that share a font, from the textStyle mark.
+          const segments: MirrorSegment[] = []
+          node.forEach((child) => {
+            if (!child.isText || !child.text) return
+            const style = child.marks.find((mark) => mark.type.name === 'textStyle')?.attrs
+            const fontFamily = typeof style?.fontFamily === 'string' ? style.fontFamily : null
+            const fontSize = typeof style?.fontSize === 'string' ? style.fontSize : null
+
+            const last = segments.at(-1)
+            if (last && last.fontFamily === fontFamily && last.fontSize === fontSize) last.text += child.text
+            else segments.push({ text: child.text, fontFamily, fontSize })
+          })
+
           blocks.push({
             type: node.type.name,
             level: typeof level === 'number' ? level : null,
             text: node.textContent,
+            segments,
           })
         })
 

@@ -210,6 +210,42 @@ body,
   border-left: 1px solid var(--divider);
 }
 
+.menubar__select {
+  height: 30px;
+  padding: 0 28px 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background-color: rgba(214, 196, 255, 0.1);
+  /* Chevron drawn inline so the native arrow can be hidden consistently across browsers. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  color: #fff;
+  font: 500 13px/1.2 var(--font-ui);
+  appearance: none;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.menubar__select:first-child {
+  min-width: 118px;
+}
+
+.menubar__select:hover {
+  background-color: rgba(214, 196, 255, 0.2);
+}
+
+.menubar__select:focus-visible {
+  outline: 2px solid var(--user);
+  outline-offset: 2px;
+}
+
+/* The open dropdown list is drawn by the OS; give it a solid dark background so the text stays readable. */
+.menubar__select option {
+  color: var(--ink);
+  background: #26105c;
+}
+
 .menubar__button {
   padding: 5px 12px;
   border: 1px solid transparent;
