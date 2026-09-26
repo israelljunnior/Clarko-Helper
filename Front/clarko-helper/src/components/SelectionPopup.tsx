@@ -6,6 +6,7 @@ import type { EditorView } from '@tiptap/pm/view'
 import { DiffText } from './DiffText'
 import { getEditableSelection, useSelectionEdit, type SelectionSession } from '../hooks/useSelectionEdit'
 import type { SuggestionService } from '../services/suggestionService'
+import clarkoHead from '../assets/clarko-head.png'
 
 const QUICK_ACTIONS = [
   { label: 'Improve', instruction: 'Improve clarity and flow' },
@@ -74,19 +75,25 @@ export function SelectionPopup({ editor, service, scrollTarget }: SelectionPopup
     <BubbleMenu editor={editor} shouldShow={shouldShow} options={options} appendTo={document.body} className="selection-popup-layer">
       <div className="selection-popup" onKeyDown={onKeyDown} onMouseDown={keepEditorFocus}>
         {edit.session ? (
-          <SessionView session={edit.session} onAccept={edit.accept} onReject={edit.reject} onRetry={edit.retry} />
+          <>
+            <ClarkoIdentity />
+            <SessionView session={edit.session} onAccept={edit.accept} onReject={edit.reject} onRetry={edit.retry} />
+          </>
         ) : (
           <div className="selection-popup__actions">
-            {QUICK_ACTIONS.map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                className="button button--quiet"
-                onClick={() => edit.start(action.instruction)}
-              >
-                {action.label}
-              </button>
-            ))}
+            <ClarkoIdentity />
+            <div className="selection-popup__buttons">
+              {QUICK_ACTIONS.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => edit.start(action.instruction)}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -109,6 +116,16 @@ export function SelectionPopup({ editor, service, scrollTarget }: SelectionPopup
         )}
       </div>
     </BubbleMenu>
+  )
+}
+
+/** Clarko's presence dot and head, marking the popup as the co-author's. */
+function ClarkoIdentity() {
+  return (
+    <span className="selection-popup__identity" aria-hidden="true">
+      <span className="presence presence--ai" />
+      <img className="pane__avatar" src={clarkoHead} alt="" />
+    </span>
   )
 }
 
