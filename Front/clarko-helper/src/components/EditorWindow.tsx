@@ -5,6 +5,7 @@ import Highlight from '@tiptap/extension-highlight'
 import TextAlign from '@tiptap/extension-text-align'
 import { FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
 import { MenuBar } from './MenuBar'
+import { BudgetIndicator } from './BudgetIndicator'
 import { CoAuthorPane, type MirrorBlock, type MirrorSegment } from './CoAuthorPane'
 import { SelectionPopup, type ClarkoAnchor } from './SelectionPopup'
 import { useAutocomplete } from '../hooks/useAutocomplete'
@@ -172,6 +173,9 @@ export function EditorWindow() {
                 onBlur={() => setTitle((current) => current.trim())}
               />
               {edited && <span className="window__edited"> — Edited</span>}
+            </div>
+            <div className="window__meta">
+              <BudgetIndicator />
             </div>
           </header>
 

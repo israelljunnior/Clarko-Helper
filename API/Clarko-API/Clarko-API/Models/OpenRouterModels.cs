@@ -1,4 +1,4 @@
-namespace Clarko.Helper.Api.OpenRouter;
+namespace Clarko_API.Models;
 
 // Property names are serialized as snake_case (see Program.cs) to match OpenRouter's API.
 

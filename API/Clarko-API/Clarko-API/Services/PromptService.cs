@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Clarko.Helper.Api.Endpoints;
-using Clarko.Helper.Api.OpenRouter;
+using Clarko_API.Models;
 
 namespace Clarko.Helper.Api.Services;
 

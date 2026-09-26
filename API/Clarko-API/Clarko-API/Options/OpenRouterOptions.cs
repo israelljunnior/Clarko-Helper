@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Clarko.Helper.Api.Configuration;
+namespace Clarko_API.Options;
 
 public sealed class OpenRouterOptions
 {

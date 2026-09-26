@@ -1,10 +1,17 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Clarko.Helper.Api.Configuration;
+namespace Clarko_API.Options;
 
 public sealed class TokenBudgetOptions
 {
     public const string SectionName = "TokenBudget";
+
+    /// <summary>
+    /// The most this app may spend in total (USD), counted from the OpenRouter key's usage.
+    /// Enforced alongside the key's own limit, whichever runs out first.
+    /// </summary>
+    [Range(typeof(decimal), "0.01", "1000")]
+    public decimal LimitUsd { get; init; } = 5.00m;
 
     /// <summary>
     /// Requests are refused once the key has less than this left (USD),

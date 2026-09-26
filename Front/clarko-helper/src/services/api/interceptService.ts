@@ -42,10 +42,12 @@ export class InterceptService {
 
     let response: Response
     try {
+      const hasBody = request.body !== undefined
       response = await fetch(request.url, {
         method: request.method,
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: request.body === undefined ? undefined : JSON.stringify(request.body),
+        // Content-Type only with a body: a bare GET then needs no CORS preflight.
+        headers: hasBody ? { Accept: 'application/json', 'Content-Type': 'application/json' } : { Accept: 'application/json' },
+        body: hasBody ? JSON.stringify(request.body) : undefined,
         signal: combined,
       })
     } catch (error) {

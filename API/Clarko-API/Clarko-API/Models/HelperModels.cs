@@ -1,4 +1,4 @@
-namespace Clarko.Helper.Api.Endpoints;
+namespace Clarko_API.Models;
 
 /// <summary>The line being typed, plus optional surrounding text for tone and topic.</summary>
 public sealed record NextWordRequest(string Line, string? Context = null);

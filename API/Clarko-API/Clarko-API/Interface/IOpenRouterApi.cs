@@ -1,6 +1,7 @@
+using Clarko_API.Models;
 using Refit;
 
-namespace Clarko.Helper.Api.OpenRouter;
+namespace Clarko_API.Interface;
 
 /// <summary>The two OpenRouter endpoints this app needs. Base address and auth come from Program.cs.</summary>
 public interface IOpenRouterApi

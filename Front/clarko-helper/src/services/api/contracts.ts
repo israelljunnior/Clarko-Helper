@@ -34,6 +34,15 @@ export interface SelectionResponse {
   reason: string
 }
 
+/** GET /api/budget: the app's AI spend against its cap, in USD. */
+export interface BudgetResponse {
+  spentUsd: number
+  limitUsd: number
+  remainingUsd: number
+  /** True once suggestions are paused because too little budget is left. */
+  exhausted: boolean
+}
+
 /** RFC 9457 problem details, which the API returns for every error. */
 export interface ProblemDetails {
   type?: string

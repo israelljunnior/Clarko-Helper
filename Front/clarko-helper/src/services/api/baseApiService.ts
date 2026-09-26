@@ -22,7 +22,9 @@ export abstract class BaseApiService {
     return this.http.send<TResult>({ method: 'POST', url: this.url(path), body }, signal)
   }
 
+  /** An empty path is the prefix itself, e.g. GET /api/budget. */
   private url(path: string): string {
-    return `${this.baseUrl}/${path.replace(/^\/+/, '')}`
+    const relative = path.replace(/^\/+/, '')
+    return relative ? `${this.baseUrl}/${relative}` : this.baseUrl
   }
 }

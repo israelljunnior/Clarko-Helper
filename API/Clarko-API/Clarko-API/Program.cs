@@ -1,10 +1,11 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Clarko.Helper.Api.Configuration;
-using Clarko.Helper.Api.Endpoints;
-using Clarko.Helper.Api.OpenRouter;
 using Clarko.Helper.Api.Services;
+using Clarko_API.EndPoints;
+using Clarko_API.Interface;
+using Clarko_API.Options;
+using Clarko_API.Services;
 using Microsoft.Extensions.Options;
 using Refit;
 
@@ -49,7 +50,7 @@ builder.Services.AddProblemDetails();
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(cors => cors.AddPolicy(FrontendCorsPolicy, policy => policy
     .WithOrigins(allowedOrigins)
-    .WithMethods(HttpMethods.Post)
+    .WithMethods(HttpMethods.Get, HttpMethods.Post)
     .WithHeaders("Content-Type")));
 
 var app = builder.Build();
@@ -59,5 +60,6 @@ app.UseStatusCodePages();
 app.UseCors(FrontendCorsPolicy);
 
 app.MapHelperEndpoints();
+app.MapBudgetEndpoints();
 
 app.Run();

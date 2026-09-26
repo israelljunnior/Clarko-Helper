@@ -1,12 +1,14 @@
 using System.Net;
-using Clarko.Helper.Api.Configuration;
-using Clarko.Helper.Api.OpenRouter;
 using Clarko.Helper.Api.Services;
+using Clarko_API.Interface;
+using Clarko_API.Models;
+using Clarko_API.Options;
+using Clarko_API.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Options;
 using Refit;
 
-namespace Clarko.Helper.Api.Endpoints;
+namespace Clarko_API.EndPoints;
 
 /// <summary>The two AI helpers the editor calls. Every request is validated and budget-checked first.</summary>
 public static class HelperEndpoints
