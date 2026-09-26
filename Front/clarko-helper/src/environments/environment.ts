@@ -9,11 +9,8 @@ export interface Environment {
   requestTimeoutMs: number
 }
 
-/**
- * Default settings: the API's `http` launch profile (API/Clarko-API/Clarko-API/Properties/launchSettings.json).
- * Set VITE_API_BASE_URL (for example in a `.env.local` file) to point the editor at another API.
- */
+
 export const environment: Environment = {
-  apiBaseUrl: (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5294').replace(/\/+$/, ''),
+  apiBaseUrl: ('http://localhost:5294').replace(/\/+$/, ''),
   requestTimeoutMs: 35_000,
 }

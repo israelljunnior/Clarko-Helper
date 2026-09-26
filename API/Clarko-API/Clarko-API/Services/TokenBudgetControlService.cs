@@ -20,6 +20,7 @@ public sealed class TokenBudgetControlService(
     IOpenRouterApi openRouter,
     IMemoryCache cache,
     IOptions<TokenBudgetOptions> options,
+    IOptions<OpenRouterOptions> openRouterOptions,
     ILogger<TokenBudgetControlService> logger)
 {
     private const string CacheKey = "openrouter:budget";
@@ -71,7 +72,7 @@ public sealed class TokenBudgetControlService(
 
         try
         {
-            var key = await openRouter.GetCurrentKeyAsync(cancellationToken);
+            var key = await openRouter.GetCurrentKeyAsync(openRouterOptions.Value.ApiKey, cancellationToken);
             var snapshot = new BudgetSnapshot(key.Data.Usage, key.Data.LimitRemaining);
             cache.Set(CacheKey, snapshot, TimeSpan.FromSeconds(_options.RefreshSeconds));
 

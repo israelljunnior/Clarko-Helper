@@ -11,6 +11,12 @@ public interface IOpenRouterApi
         [Body] ChatCompletionRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Usage and limits of <paramref name="apiKey"/>. The key is sent as "Authorization: Bearer {apiKey}",
+    /// which takes precedence over the client's default header from Program.cs.
+    /// </summary>
     [Get("/key")]
-    Task<KeyInfoResponse> GetCurrentKeyAsync(CancellationToken cancellationToken = default);
+    Task<KeyInfoResponse> GetCurrentKeyAsync(
+        [Authorize("Bearer")] string apiKey,
+        CancellationToken cancellationToken = default);
 }
