@@ -316,8 +316,6 @@ body,
   text-align: right;
 }
 
-.pane__status--suggesting { color: var(--coauthor); }
-.pane__status--error { color: var(--delete); }
 
 .presence {
   width: 8px;
@@ -397,8 +395,23 @@ body,
   border-radius: 4px;
 }
 
-.mirror__block.is-reading {
+/* Each paragraph in Clarko's view can be clicked to select it in the document and review it. */
+.mirror__text.is-reviewable {
+  margin: 0 -8px;
+  padding: 0 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.mirror__text.is-reviewable:hover {
   color: var(--ink);
+  background: rgba(255, 210, 63, 0.07);
+}
+
+.mirror__text.is-reviewable:focus-visible {
+  outline: 2px solid #ffd23f;
+  outline-offset: 2px;
 }
 
 /* Clarko's selection over the paragraph it is working on, in its presence color. */
@@ -408,14 +421,6 @@ body,
   border-radius: 2px;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
-}
-
-.mirror__block.is-reading .mirror__selection {
-  animation: reading 1.4s ease-in-out infinite;
-}
-
-@keyframes reading {
-  50% { background: rgba(255, 210, 63, 0.08); }
 }
 
 /* Clarko's caret: a collaborator-style cursor with a name tag above it. */
@@ -457,42 +462,6 @@ body,
   border-radius: 4px 4px 4px 0;
   pointer-events: none;
   user-select: none;
-}
-
-/* Note under a paragraph whose rejected edits Clarko is holding back. */
-.skipped {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: normal;
-  color: var(--ink-faint);
-}
-
-.skipped__review {
-  padding: 0;
-  font: inherit;
-  font-weight: 600;
-  color: var(--coauthor);
-  background: none;
-  border: 0;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.skipped__review:hover {
-  color: var(--ink);
-}
-
-.skipped__review:focus-visible {
-  outline: 2px solid var(--coauthor);
-  outline-offset: 2px;
-  border-radius: 2px;
 }
 
 /* Autocomplete: the predicted words, waiting to be pulled into the document with Tab. */
@@ -555,18 +524,6 @@ body,
 
 .mirror__block:has(ins, del) {
   color: var(--ink);
-}
-
-.suggestion {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: normal;
 }
 
 .suggestion__reason {
@@ -632,24 +589,43 @@ body,
   gap: 6px;
 }
 
-.selection-popup__actions {
-  flex-wrap: nowrap;
-  align-items: flex-start;
+/* [+] and the inline field for naming a new command. */
+.selection-popup__add {
+  min-width: 32px;
+  justify-content: center;
+  font-weight: 600;
 }
 
-.selection-popup__identity {
-  flex: 0 0 auto;
-  display: flex;
+.selection-popup__new {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
 }
 
-.selection-popup__buttons {
-  flex: 1;
+.selection-popup__new-input {
+  flex: 0 0 auto;
+  width: 17ch;
+}
+
+.selection-popup__new-input[aria-invalid='true'] {
+  border-color: var(--delete);
+}
+
+.selection-popup__count {
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Clarko's dot and head sit on their own line at the top of the popup, above its content. */
+.selection-popup__identity {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  align-items: center;
   gap: 6px;
 }
 
@@ -758,8 +734,3 @@ kbd {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .mirror__block.is-reading .mirror__selection {
-    animation: none;
-  }
-}

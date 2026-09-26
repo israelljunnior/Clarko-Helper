@@ -1,7 +1,5 @@
-import type { CSSProperties } from 'react'
-import { DiffText } from './DiffText'
+import type { CSSProperties, KeyboardEvent } from 'react'
 import clarkoHead from '../assets/clarko-head.png'
-import type { CoAuthorStatus, ReviewedBlock, Suggestion } from '../hooks/useCoAuthor'
 import type { Completion } from '../hooks/useAutocomplete'
 
 /** A run of text with the same font, so Clarko's view matches the author's formatting. */
@@ -16,6 +14,8 @@ export interface MirrorBlock {
   level: number | null
   text: string
   segments: MirrorSegment[]
+  /** Paragraphs and headings can be reviewed; lists, quotes and code cannot yet. */
+  reviewable: boolean
 }
 
 function fontStyle({ fontFamily, fontSize }: MirrorSegment): CSSProperties | undefined {
@@ -23,52 +23,33 @@ function fontStyle({ fontFamily, fontSize }: MirrorSegment): CSSProperties | und
   return { fontFamily: fontFamily ?? undefined, fontSize: fontSize ?? undefined }
 }
 
-/** The block's text with each run in its own font. */
-function StyledText({ block }: { block: MirrorBlock }) {
-  if (!block.text) return '\u00a0'
-  return block.segments.map((segment, i) => (
+/** Runs of text, each in its own font. */
+function StyledText({ segments }: { segments: MirrorSegment[] }) {
+  return segments.map((segment, i) => (
     <span key={i} style={fontStyle(segment)}>
       {segment.text}
     </span>
   ))
 }
 
-/** Suggested next words are inserted at the end of the line, so they take the font found there. */
-function endFontStyle(block: MirrorBlock): CSSProperties | undefined {
-  const last = block.segments.at(-1)
+/** Splits the paragraph's runs at a character offset, so suggested words can be shown in between. */
+function splitSegments(segments: MirrorSegment[], offset: number): [MirrorSegment[], MirrorSegment[]] {
+  const before: MirrorSegment[] = []
+  const after: MirrorSegment[] = []
+  let seen = 0
+  for (const segment of segments) {
+    const cut = Math.min(Math.max(offset - seen, 0), segment.text.length)
+    if (cut > 0) before.push({ ...segment, text: segment.text.slice(0, cut) })
+    if (cut < segment.text.length) after.push({ ...segment, text: segment.text.slice(cut) })
+    seen += segment.text.length
+  }
+  return [before, after]
+}
+
+/** Suggested words take the font of the text just before them, like typed text would. */
+function fontBefore(segments: MirrorSegment[]): CSSProperties | undefined {
+  const last = segments.at(-1)
   return last ? fontStyle(last) : undefined
-}
-
-/**
- * A suggestion diff is plain text, so it can only keep a font the whole paragraph shares.
- * Mixed fonts fall back to the default while the diff is showing.
- */
-function sharedFontStyle(block: MirrorBlock): CSSProperties | undefined {
-  const [first, ...rest] = block.segments
-  if (!first) return undefined
-  const uniform = rest.every((s) => s.fontFamily === first.fontFamily && s.fontSize === first.fontSize)
-  return uniform ? fontStyle(first) : undefined
-}
-
-interface CoAuthorPaneProps {
-  blocks: MirrorBlock[]
-  status: CoAuthorStatus
-  activeBlock: number | null
-  suggestion: Suggestion | null
-  completion: Completion | null
-  reviewed: ReviewedBlock | null
-  onAccept: () => void
-  onReject: () => void
-  onAcceptCompletion: (option: string) => void
-  onReviewAgain: () => void
-}
-
-const STATUS_TEXT: Record<CoAuthorStatus, (block: number | null) => string> = {
-  idle: () => 'Pause while writing and I’ll look at your paragraph',
-  reading: (block) => `Reading paragraph ${(block ?? 0) + 1}…`,
-  suggesting: () => 'I have a suggestion. Tab to accept, Esc to reject',
-  reviewed: () => 'That paragraph reads well',
-  error: () => 'Couldn’t reach the model. Keep typing to try again',
 }
 
 /**
@@ -83,27 +64,36 @@ function ClarkoCaret({ span = false }: { span?: boolean }) {
   )
 }
 
-function blockClassName(block: MirrorBlock, isActive: boolean) {
+function blockClassName(block: MirrorBlock) {
   const classes = ['mirror__block', `mirror__block--${block.type}`]
   if (block.level) classes.push(`mirror__block--h${block.level}`)
-  if (isActive) classes.push('is-reading')
   return classes.join(' ')
+}
+
+interface CoAuthorPaneProps {
+  blocks: MirrorBlock[]
+  /** The paragraph fully selected in the document, which Clarko marks as its own selection. */
+  selectedBlock: number | null
+  completion: Completion | null
+  onSelectBlock: (index: number) => void
+  onAcceptCompletion: (option: string) => void
+  /** Receives the scrolling body, so a review popup can open next to Clarko's copy of a paragraph. */
+  bodyRef: (element: HTMLDivElement | null) => void
 }
 
 export function CoAuthorPane({
   blocks,
-  status,
-  activeBlock,
-  suggestion,
+  selectedBlock,
   completion,
-  reviewed,
-  onAccept,
-  onReject,
+  onSelectBlock,
   onAcceptCompletion,
-  onReviewAgain,
+  bodyRef,
 }: CoAuthorPaneProps) {
-  // Autocomplete only speaks up while Clarko has nothing more important to say.
-  const showCompletionStatus = completion && (status === 'idle' || status === 'reviewed')
+  const status = completion
+    ? 'Tab to add the next words, Esc to dismiss'
+    : selectedBlock !== null
+      ? 'Pick what to do in the popup'
+      : 'Click a paragraph to review it'
 
   return (
     <section className="pane pane--coauthor" aria-label="Clarko">
@@ -111,61 +101,65 @@ export function CoAuthorPane({
         <span className="presence presence--ai" aria-hidden="true" />
         <img className="pane__avatar" src={clarkoHead} alt="" aria-hidden="true" />
         <span className="pane__name">Clarko</span>
-        <span className={`pane__status pane__status--${status}`} aria-live="polite">
-          {showCompletionStatus ? 'Tab to add the next words, Esc to dismiss' : STATUS_TEXT[status](activeBlock)}
+        <span className="pane__status" aria-live="polite">
+          {status}
         </span>
       </header>
 
-      <div className="pane__body mirror">
+      <div className="pane__body mirror" ref={bodyRef}>
         {blocks.map((block, index) => {
-          const hasSuggestion = suggestion?.blockIndex === index
-          const hasCompletion = !hasSuggestion && completion?.blockIndex === index
-          const isActive = activeBlock === index
-          const skippedCount = reviewed?.blockIndex === index ? reviewed.skipped.length : 0
-          // Clarko "selects" the paragraph it is reading or has a suggestion for.
-          const isSelected = isActive || hasSuggestion
-          const content = hasSuggestion ? (
-            <span style={sharedFontStyle(block)}>
-              <DiffText original={suggestion.original} revised={suggestion.revised} />
-            </span>
-          ) : (
-            <StyledText block={block} />
-          )
-          return (
-            <div key={index} className={blockClassName(block, isActive)}>
-              {isSelected ? (
-                <div className="mirror__selected">
-                  <ClarkoCaret span />
-                  <span className="mirror__selection">{content}</span>
-                  {hasCompletion && <span className="mirror__ghost" style={endFontStyle(block)}>{completion.options[0]}</span>}
-                </div>
-              ) : (
-                <>
-                  {content}
-                  {hasCompletion && (
-                    <>
-                      <ClarkoCaret />
-                      <span className="mirror__ghost" style={endFontStyle(block)}>{completion.options[0]}</span>
-                    </>
-                  )}
-                </>
-              )}
+          const hasCompletion = completion?.blockIndex === index
+          const isSelected = selectedBlock === index
+          const canReview = block.reviewable && block.text.trim() !== ''
 
-              {skippedCount > 0 && (
-                <div className="skipped">
-                  <span>
-                    Skipping {skippedCount} {skippedCount === 1 ? 'change' : 'changes'} you rejected
-                  </span>
-                  <button
-                    type="button"
-                    className="skipped__review"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={onReviewAgain}
-                  >
-                    Review again
-                  </button>
-                </div>
-              )}
+          const select = () => canReview && onSelectBlock(index)
+          const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return
+            event.preventDefault()
+            select()
+          }
+
+          const [before, after] = hasCompletion ? splitSegments(block.segments, completion.offset) : [block.segments, []]
+
+          return (
+            <div key={index} className={blockClassName(block)}>
+              <div
+                className={canReview ? 'mirror__text is-reviewable' : 'mirror__text'}
+                data-block-index={index}
+                role={canReview ? 'button' : undefined}
+                tabIndex={canReview ? 0 : undefined}
+                aria-label={canReview ? `Review paragraph ${index + 1}` : undefined}
+                aria-pressed={canReview ? isSelected : undefined}
+                title={canReview ? 'Review this paragraph' : undefined}
+                // Keep focus in the editor's flow: the click selects the paragraph there instead.
+                onMouseDown={(event) => canReview && event.preventDefault()}
+                onClick={select}
+                onKeyDown={canReview ? onKeyDown : undefined}
+              >
+                {isSelected ? (
+                  <div className="mirror__selected">
+                    <ClarkoCaret span />
+                    <span className="mirror__selection">
+                      <StyledText segments={block.segments} />
+                    </span>
+                  </div>
+                ) : !block.text ? (
+                  ' '
+                ) : (
+                  <>
+                    <StyledText segments={before} />
+                    {hasCompletion && (
+                      <>
+                        <ClarkoCaret />
+                        <span className="mirror__ghost" style={fontBefore(before)}>
+                          {completion.options[0]}
+                        </span>
+                      </>
+                    )}
+                    <StyledText segments={after} />
+                  </>
+                )}
+              </div>
 
               {hasCompletion && (
                 <div className="completion" aria-live="polite">
@@ -181,18 +175,6 @@ export function CoAuthorPane({
                       {optionIndex === 0 && <kbd>Tab</kbd>}
                     </button>
                   ))}
-                </div>
-              )}
-
-              {hasSuggestion && (
-                <div className="suggestion">
-                  <span className="suggestion__reason">{suggestion.reason}</span>
-                  <button type="button" className="button button--accept" onClick={onAccept}>
-                    Accept <kbd>Tab</kbd>
-                  </button>
-                  <button type="button" className="button" onClick={onReject}>
-                    Reject <kbd>Esc</kbd>
-                  </button>
                 </div>
               )}
             </div>

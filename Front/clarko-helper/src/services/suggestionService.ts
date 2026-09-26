@@ -20,12 +20,6 @@ const DEFAULT_MODEL = 'openai/gpt-4o-mini'
 const RESPONSE_FORMAT = `Respond only with JSON: {"revised": string | null, "reason": string}.
 Use null for "revised" when no change is needed. Keep "reason" under 12 words.`
 
-const PARAGRAPH_PROMPT = `You are Clarko, a careful co-author reviewing one paragraph of a Markdown document.
-Suggest a small, focused improvement: fix grammar, spelling, punctuation and clumsy wording.
-Keep the author's voice, meaning and Markdown syntax. Do not add new ideas and do not continue the text.
-Change as little as possible.
-${RESPONSE_FORMAT}`
-
 const SELECTION_PROMPT = `You are Clarko, a co-author editing a passage the author selected in a Markdown document.
 Rewrite only the selected text, following the author's instruction. The surrounding paragraph is context:
 never include it in your answer. Keep Markdown syntax, the author's voice and the meaning unless asked otherwise.
@@ -40,14 +34,6 @@ export class SuggestionService {
   constructor(client: OpenRouterClient, model: string = DEFAULT_MODEL) {
     this.client = client
     this.model = model
-  }
-
-  suggestForParagraph(paragraph: string, signal?: AbortSignal): Promise<TextSuggestion | null> {
-    const messages: ChatMessage[] = [
-      { role: 'system', content: PARAGRAPH_PROMPT },
-      { role: 'user', content: `Paragraph:\n"""\n${paragraph}\n"""` },
-    ]
-    return this.complete(messages, paragraph, signal)
   }
 
   suggestForSelection(

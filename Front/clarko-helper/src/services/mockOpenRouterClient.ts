@@ -106,6 +106,7 @@ export class MockOpenRouterClient implements OpenRouterClient {
   }
 
   private rulesFor(instruction: string): RewriteRule[] {
+    if (/grammar|spelling|punctuation|proofread/i.test(instruction)) return PROOFREAD
     // "informal" contains "formal", so casual is checked first.
     if (/casual|informal|friendl/i.test(instruction)) return [...PROOFREAD, ...CASUAL]
     if (/formal/i.test(instruction)) return [...PROOFREAD, ...FORMAL]
