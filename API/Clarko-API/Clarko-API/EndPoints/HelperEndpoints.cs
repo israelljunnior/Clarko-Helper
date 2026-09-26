@@ -35,7 +35,7 @@ public static class HelperEndpoints
     {
         var validation = prompts.ValidateNextWord(request);
         if (!validation.IsValid) return TypedResults.ValidationProblem(validation.Errors);
-        if (!await budget.HasBudgetAsync(cancellationToken)) return BudgetExhausted();
+        if (!await budget.HasBudgetAsync(cancellationToken)) return TokenBudgetControlService.BudgetExhausted();
 
         var completion = new ChatCompletionRequest(
             Model: options.Value.SuggestionModel,
@@ -45,8 +45,9 @@ public static class HelperEndpoints
             ResponseFormat: ResponseFormat.JsonObject,
             Usage: UsageOptions.Included);
 
-        var (response, problem) = await SendAsync(openRouter, budget, completion, loggers, cancellationToken);
+        var (response, problem) = await SendAsync(openRouter, completion, loggers, cancellationToken);
         if (problem is not null) return problem;
+        budget.RecordSpend(response!.Usage);
 
         return TypedResults.Ok(new NextWordResponse(prompts.ParseNextWords(response!.FirstContent)));
     }
@@ -63,7 +64,7 @@ public static class HelperEndpoints
     {
         var validation = prompts.ValidateSelection(request);
         if (!validation.IsValid) return TypedResults.ValidationProblem(validation.Errors);
-        if (!await budget.HasBudgetAsync(cancellationToken)) return BudgetExhausted();
+        if (!await budget.HasBudgetAsync(cancellationToken)) return TokenBudgetControlService.BudgetExhausted();
 
         var completion = new ChatCompletionRequest(
             Model: options.Value.SelectionModel,
@@ -73,8 +74,9 @@ public static class HelperEndpoints
             ResponseFormat: ResponseFormat.JsonObject,
             Usage: UsageOptions.Included);
 
-        var (response, problem) = await SendAsync(openRouter, budget, completion, loggers, cancellationToken);
+        var (response, problem) = await SendAsync(openRouter, completion, loggers, cancellationToken);
         if (problem is not null) return problem;
+        budget.RecordSpend(response!.Usage);
 
         var revision = prompts.ParseRevision(response!.FirstContent, request.SelectedText);
         if (revision is null)
@@ -89,7 +91,6 @@ public static class HelperEndpoints
 
     private static async Task<(ChatCompletionResponse? Response, ProblemHttpResult? Problem)> SendAsync(
         IOpenRouterApi openRouter,
-        TokenBudgetControlService budget,
         ChatCompletionRequest request,
         ILoggerFactory loggers,
         CancellationToken cancellationToken)
@@ -99,7 +100,6 @@ public static class HelperEndpoints
         try
         {
             var response = await openRouter.CreateChatCompletionAsync(request, cancellationToken);
-            budget.RecordSpend(response.Usage);
 
             logger.LogInformation(
                 "{Model} answered with {Tokens} tokens, cost {Cost} USD",
@@ -113,7 +113,7 @@ public static class HelperEndpoints
 
             return (null, exception.StatusCode switch
             {
-                HttpStatusCode.PaymentRequired => BudgetExhausted(),
+                HttpStatusCode.PaymentRequired => TokenBudgetControlService.BudgetExhausted(),
                 HttpStatusCode.TooManyRequests => TypedResults.Problem(
                     "Too many requests to the model. Wait a moment and try again.",
                     statusCode: StatusCodes.Status429TooManyRequests),
@@ -137,9 +137,4 @@ public static class HelperEndpoints
                 statusCode: StatusCodes.Status504GatewayTimeout));
         }
     }
-
-    private static ProblemHttpResult BudgetExhausted() =>
-        TypedResults.Problem(
-            "The AI budget for this demo is used up, so suggestions are paused.",
-            statusCode: StatusCodes.Status402PaymentRequired);
 }
