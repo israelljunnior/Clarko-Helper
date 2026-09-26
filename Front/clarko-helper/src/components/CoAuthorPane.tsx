@@ -1,6 +1,6 @@
 import { DiffText } from './DiffText'
 import clarkoHead from '../assets/clarko-head.png'
-import type { CoAuthorStatus, Suggestion } from '../hooks/useCoAuthor'
+import type { CoAuthorStatus, ReviewedBlock, Suggestion } from '../hooks/useCoAuthor'
 import type { Completion } from '../hooks/useAutocomplete'
 
 export interface MirrorBlock {
@@ -15,9 +15,11 @@ interface CoAuthorPaneProps {
   activeBlock: number | null
   suggestion: Suggestion | null
   completion: Completion | null
+  reviewed: ReviewedBlock | null
   onAccept: () => void
   onReject: () => void
   onAcceptCompletion: (option: string) => void
+  onReviewAgain: () => void
 }
 
 const STATUS_TEXT: Record<CoAuthorStatus, (block: number | null) => string> = {
@@ -53,9 +55,11 @@ export function CoAuthorPane({
   activeBlock,
   suggestion,
   completion,
+  reviewed,
   onAccept,
   onReject,
   onAcceptCompletion,
+  onReviewAgain,
 }: CoAuthorPaneProps) {
   // Autocomplete only speaks up while Clarko has nothing more important to say.
   const showCompletionStatus = completion && (status === 'idle' || status === 'reviewed')
@@ -76,6 +80,7 @@ export function CoAuthorPane({
           const hasSuggestion = suggestion?.blockIndex === index
           const hasCompletion = !hasSuggestion && completion?.blockIndex === index
           const isActive = activeBlock === index
+          const skippedCount = reviewed?.blockIndex === index ? reviewed.skipped.length : 0
           // Clarko "selects" the paragraph it is reading or has a suggestion for.
           const isSelected = isActive || hasSuggestion
           const content = hasSuggestion ? (
@@ -101,6 +106,22 @@ export function CoAuthorPane({
                     </>
                   )}
                 </>
+              )}
+
+              {skippedCount > 0 && (
+                <div className="skipped">
+                  <span>
+                    Skipping {skippedCount} {skippedCount === 1 ? 'change' : 'changes'} you rejected
+                  </span>
+                  <button
+                    type="button"
+                    className="skipped__review"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={onReviewAgain}
+                  >
+                    Review again
+                  </button>
+                </div>
               )}
 
               {hasCompletion && (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { SuggestionService } from '../services/suggestionService'
+import { changeKey, splitChanges, withoutRejected } from '../services/rejectedChanges'
 
 const PAUSE_MS = 1500
 const MIN_PARAGRAPH_CHARS = 20
@@ -18,6 +19,8 @@ export interface Suggestion {
 export interface ReviewedBlock {
   blockIndex: number
   text: string
+  /** Edits the author rejected earlier that Clarko held back for this paragraph. */
+  skipped: string[]
 }
 
 interface CoAuthorState {
@@ -106,6 +109,9 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
 
   const suggestionRef = useRef<Suggestion | null>(null)
   const lastReviewedText = useRef('')
+  /** Every edit the author rejected in this document, so Clarko never offers it twice. */
+  const rejectedChanges = useRef(new Set<string>())
+  const reviewRef = useRef<((block: BlockRange) => void) | null>(null)
 
   useEffect(() => {
     suggestionRef.current = state.suggestion
@@ -118,13 +124,7 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
     let timer: ReturnType<typeof setTimeout> | undefined
     let inFlight: AbortController | null = null
 
-    const requestSuggestion = async () => {
-      if (!editor.state.selection.empty) return // selections belong to the popup flow
-
-      const block = getCurrentBlock(editor)
-      if (!block || block.text.trim().length < MIN_PARAGRAPH_CHARS) return
-      if (block.text === lastReviewedText.current) return
-
+    const review = async (block: BlockRange) => {
       const controller = new AbortController()
       inFlight = controller
       dispatch({ type: 'reading', blockIndex: block.index })
@@ -136,16 +136,40 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
         lastReviewedText.current = block.text
         if (!findUnchangedBlock(editor, block.index, block.text)) return dispatch({ type: 'cleared' })
 
-        if (result) {
-          dispatch({ type: 'suggested', suggestion: { blockIndex: block.index, original: block.text, ...result } })
+        // Hold back anything the author already said no to; if nothing is left, the paragraph reads well.
+        const { revised, skipped } = result
+          ? withoutRejected(block.text, result.revised, rejectedChanges.current)
+          : { revised: block.text, skipped: [] }
+
+        if (result && revised !== block.text) {
+          dispatch({
+            type: 'suggested',
+            suggestion: { blockIndex: block.index, original: block.text, revised, reason: result.reason },
+          })
         } else {
-          dispatch({ type: 'reviewed', block: { blockIndex: block.index, text: block.text } })
+          dispatch({ type: 'reviewed', block: { blockIndex: block.index, text: block.text, skipped } })
         }
       } catch {
         if (!controller.signal.aborted) dispatch({ type: 'failed' })
       } finally {
         if (inFlight === controller) inFlight = null
       }
+    }
+
+    const requestSuggestion = () => {
+      if (!editor.state.selection.empty) return // selections belong to the popup flow
+
+      const block = getCurrentBlock(editor)
+      if (!block || block.text.trim().length < MIN_PARAGRAPH_CHARS) return
+      if (block.text === lastReviewedText.current) return
+
+      void review(block)
+    }
+
+    reviewRef.current = (block) => {
+      clearTimeout(timer)
+      inFlight?.abort()
+      void review(block)
     }
 
     const onUpdate = () => {
@@ -161,12 +185,13 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
         dispatch({ type: 'cleared' })
       }
 
-      timer = setTimeout(() => void requestSuggestion(), PAUSE_MS)
+      timer = setTimeout(requestSuggestion, PAUSE_MS)
     }
 
     editor.on('update', onUpdate)
     return () => {
       editor.off('update', onUpdate)
+      reviewRef.current = null
       clearTimeout(timer)
       inFlight?.abort()
     }
@@ -191,7 +216,7 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
       .run()
 
     // An accepted fix is Clarko's own wording, so the paragraph now reads well.
-    dispatch({ type: 'reviewed', block: { blockIndex: suggestion.blockIndex, text: suggestion.revised } })
+    dispatch({ type: 'reviewed', block: { blockIndex: suggestion.blockIndex, text: suggestion.revised, skipped: [] } })
   }, [editor])
 
   const reject = useCallback(() => {
@@ -199,11 +224,31 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
     dispatch({ type: 'cleared' })
     editor?.commands.focus()
 
+    if (!editor || !suggestion) return
+
+    // Remember each edit on its own, so later reviews skip it even after the paragraph grows.
+    const skipped = splitChanges(suggestion.original, suggestion.revised).map(changeKey)
+    skipped.forEach((key) => rejectedChanges.current.add(key))
+
     // The author chose to keep their wording, so treat the paragraph as reading well and move on to autocomplete.
-    if (editor && suggestion && findUnchangedBlock(editor, suggestion.blockIndex, suggestion.original)) {
-      dispatch({ type: 'reviewed', block: { blockIndex: suggestion.blockIndex, text: suggestion.original } })
+    if (findUnchangedBlock(editor, suggestion.blockIndex, suggestion.original)) {
+      dispatch({ type: 'reviewed', block: { blockIndex: suggestion.blockIndex, text: suggestion.original, skipped } })
     }
   }, [editor])
+
+  /** Forgets the rejections held back for the approved paragraph and reviews it from scratch. */
+  const reviewAgain = useCallback(() => {
+    const reviewed = state.reviewed
+    if (!editor || !reviewed) return
+
+    const block = findUnchangedBlock(editor, reviewed.blockIndex, reviewed.text)
+    if (!block) return
+
+    reviewed.skipped.forEach((key) => rejectedChanges.current.delete(key))
+    lastReviewedText.current = ''
+    editor.commands.focus()
+    reviewRef.current?.(block)
+  }, [editor, state.reviewed])
 
   // Tab accepts and Esc rejects, even when focus has left the editor (e.g. after renaming the title).
   // Listens in the capture phase so it runs before the editor's own keymaps, such as list indentation.
@@ -225,5 +270,5 @@ export function useCoAuthor(editor: Editor | null, service: SuggestionService) {
     return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [editor, accept, reject])
 
-  return { ...state, accept, reject }
+  return { ...state, accept, reject, reviewAgain }
 }

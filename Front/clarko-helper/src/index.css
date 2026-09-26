@@ -423,6 +423,42 @@ body,
   user-select: none;
 }
 
+/* Note under a paragraph whose rejected edits Clarko is holding back. */
+.skipped {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+  color: var(--ink-faint);
+}
+
+.skipped__review {
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--coauthor);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.skipped__review:hover {
+  color: var(--ink);
+}
+
+.skipped__review:focus-visible {
+  outline: 2px solid var(--coauthor);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* Autocomplete: the predicted words, waiting to be pulled into the document with Tab. */
 .mirror__ghost {
   color: var(--coauthor);

@@ -184,9 +184,11 @@ export function EditorWindow() {
               activeBlock={coAuthor.activeBlock}
               suggestion={coAuthor.suggestion}
               completion={autocomplete.completion}
+              reviewed={coAuthor.reviewed}
               onAccept={coAuthor.accept}
               onReject={coAuthor.reject}
               onAcceptCompletion={autocomplete.accept}
+              onReviewAgain={coAuthor.reviewAgain}
             />
           </div>
 
