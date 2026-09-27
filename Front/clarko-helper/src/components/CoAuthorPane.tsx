@@ -1,6 +1,11 @@
 import type { CSSProperties, KeyboardEvent } from 'react'
 import clarkoHead from '../assets/clarko-head.png'
 import type { Completion } from '../hooks/useAutocomplete'
+import type { InsightsService } from '../services/insightsService'
+import { InsightsPopup } from './InsightsPopup'
+
+/** How much earlier text Clarko gets as context for its insights. */
+const INSIGHTS_CONTEXT_CHARS = 1000
 
 /** A run of text with the same font, so Clarko's view matches the author's formatting. */
 export interface MirrorSegment {
@@ -79,6 +84,11 @@ interface CoAuthorPaneProps {
   onAcceptCompletion: (option: string) => void
   /** Receives the scrolling body, so a review popup can open next to Clarko's copy of a paragraph. */
   bodyRef: (element: HTMLDivElement | null) => void
+  insights: InsightsService
+  /** The paragraph whose insights popup is open, if any. */
+  insightsFor: number | null
+  onOpenInsights: (index: number) => void
+  onCloseInsights: () => void
 }
 
 export function CoAuthorPane({
@@ -88,6 +98,10 @@ export function CoAuthorPane({
   onSelectBlock,
   onAcceptCompletion,
   bodyRef,
+  insights,
+  insightsFor,
+  onOpenInsights,
+  onCloseInsights,
 }: CoAuthorPaneProps) {
   const status = completion
     ? 'Tab to add the next words, Esc to dismiss'
@@ -120,9 +134,40 @@ export function CoAuthorPane({
           }
 
           const [before, after] = hasCompletion ? splitSegments(block.segments, completion.offset) : [block.segments, []]
+          const insightsOpen = canReview && insightsFor === index
 
           return (
-            <div key={index} className={blockClassName(block)}>
+            <div key={index} className={insightsOpen ? `${blockClassName(block)} has-insights` : blockClassName(block)}>
+              {canReview && (
+                <button
+                  type="button"
+                  className={insightsOpen ? 'insights-button is-open' : 'insights-button'}
+                  aria-haspopup="dialog"
+                  aria-expanded={insightsOpen}
+                  aria-label={`Clarko's insights on paragraph ${index + 1}`}
+                  onClick={() => (insightsOpen ? onCloseInsights() : onOpenInsights(index))}
+                >
+                  <span aria-hidden="true">✨</span> Insights
+                </button>
+              )}
+              {insightsOpen && (
+                <InsightsPopup
+                  // A fresh conversation for each paragraph.
+                  key={index}
+                  service={insights}
+                  paragraph={block.text}
+                  context={blocks
+                    .slice(0, index)
+                    .map((earlier) => earlier.text)
+                    .join('\n')
+                    .slice(-INSIGHTS_CONTEXT_CHARS)}
+                  onClose={onCloseInsights}
+                  onGoToActions={() => {
+                    onCloseInsights()
+                    onSelectBlock(index)
+                  }}
+                />
+              )}
               <div
                 className={canReview ? 'mirror__text is-reviewable' : 'mirror__text'}
                 data-block-index={index}

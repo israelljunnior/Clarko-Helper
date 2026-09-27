@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Highlight from '@tiptap/extension-highlight'
@@ -7,12 +7,12 @@ import { FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
 import { MenuBar } from './MenuBar'
 import { BudgetIndicator } from './BudgetIndicator'
 import { CoAuthorPane, type MirrorBlock, type MirrorSegment } from './CoAuthorPane'
-import { SelectionPopup, type ClarkoAnchor } from './SelectionPopup'
+import { SelectionPopup, type ClarkoAnchor, type SelectionPopupHandle } from './SelectionPopup'
 import { useAutocomplete } from '../hooks/useAutocomplete'
 import { useSyncedScroll } from '../hooks/useSyncedScroll'
 import { getBlockAt, getFullySelectedBlock } from '../hooks/editorBlocks'
 import { SuggestionService } from '../services/suggestionService'
-import { helperApi } from '../services/api'
+import { chatApi, helperApi } from '../services/api'
 import clarkoLogo from '../assets/clarko-logo.png'
 
 const INITIAL_CONTENT = `
@@ -34,12 +34,23 @@ export function EditorWindow() {
   // Both AI helpers talk to the Clarko API; its address comes from src/environments/environment.ts.
   const service = useMemo(() => new SuggestionService(helperApi), [])
   const completions = helperApi
+  // Clarko's insights stream from the API's /api/chat/insights.
+  const insights = chatApi
   const [title, setTitle] = useState('')
   const [edited, setEdited] = useState(false)
   const [userPane, setUserPane] = useState<HTMLDivElement | null>(null)
   const [clarkoPane, setClarkoPane] = useState<HTMLDivElement | null>(null)
   /** The paragraph last picked in Clarko's pane; its review popup opens on Clarko's side. */
   const [pickedBlock, setPickedBlock] = useState<number | null>(null)
+
+  // The selection popup and Clarko's insights never show together: opening one closes the other.
+  const selectionPopup = useRef<SelectionPopupHandle>(null)
+  const [insightsFor, setInsightsFor] = useState<number | null>(null)
+  const openInsights = (index: number) => {
+    selectionPopup.current?.close()
+    setInsightsFor(index)
+  }
+  const closeInsights = useCallback(() => setInsightsFor(null), [])
 
   const editor = useEditor({
     extensions: [
@@ -198,7 +209,14 @@ export function EditorWindow() {
               <div className="pane__body" ref={setUserPane}>
                 <EditorContent editor={editor} />
                 {editor && (
-                  <SelectionPopup editor={editor} service={service} scrollTarget={userPane} anchor={reviewAnchor} />
+                  <SelectionPopup
+                    ref={selectionPopup}
+                    editor={editor}
+                    service={service}
+                    scrollTarget={userPane}
+                    anchor={reviewAnchor}
+                    onShow={closeInsights}
+                  />
                 )}
               </div>
             </section>
@@ -210,6 +228,10 @@ export function EditorWindow() {
               onSelectBlock={selectBlock}
               onAcceptCompletion={autocomplete.accept}
               bodyRef={setClarkoPane}
+              insights={insights}
+              insightsFor={insightsFor}
+              onOpenInsights={openInsights}
+              onCloseInsights={closeInsights}
             />
           </div>
 

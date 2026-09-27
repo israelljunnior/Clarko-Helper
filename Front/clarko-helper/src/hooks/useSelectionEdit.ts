@@ -150,5 +150,6 @@ export function useSelectionEdit(editor: Editor, service: SuggestionService) {
     }
   }, [editor, close])
 
-  return { session, start, refine, retry, accept, reject }
+  // `dismiss` drops the suggestion without touching focus, for when another popup is taking over.
+  return { session, start, refine, retry, accept, reject, dismiss: close }
 }

@@ -29,4 +29,8 @@ public sealed class TokenBudgetOptions
 
     [Range(1, 4000)]
     public int SelectionMaxTokens { get; init; } = 800;
+
+    /// <summary>One insights message: a short paragraph of thoughts or an answer to a question.</summary>
+    [Range(1, 4000)]
+    public int ChatMaxTokens { get; init; } = 300;
 }

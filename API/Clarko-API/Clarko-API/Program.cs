@@ -1,9 +1,8 @@
 using System.Net.Http.Headers;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Clarko.Helper.Api.Services;
 using Clarko_API.EndPoints;
 using Clarko_API.Interface;
+using Clarko_API.Models;
 using Clarko_API.Options;
 using Clarko_API.Services;
 using Microsoft.Extensions.Options;
@@ -24,15 +23,8 @@ builder.Services.AddOptions<TokenBudgetOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-// OpenRouter speaks snake_case JSON; our own API keeps the default camelCase.
-var openRouterJson = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-{
-    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-};
-
 builder.Services
-    .AddRefitClient<IOpenRouterApi>(new RefitSettings(new SystemTextJsonContentSerializer(openRouterJson)))
+    .AddRefitClient<IOpenRouterApi>(new RefitSettings(new SystemTextJsonContentSerializer(OpenRouterJson.Options)))
     .ConfigureHttpClient((services, client) =>
     {
         var openRouter = services.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
@@ -45,6 +37,7 @@ builder.Services
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<PromptService>();
 builder.Services.AddScoped<TokenBudgetControlService>();
+builder.Services.AddScoped<ChatService>();
 builder.Services.AddProblemDetails();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
@@ -61,5 +54,6 @@ app.UseCors(FrontendCorsPolicy);
 
 app.MapHelperEndpoints();
 app.MapBudgetEndpoints();
+app.MapChatEndpoints();
 
 app.Run();

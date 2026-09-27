@@ -20,6 +20,10 @@ public sealed class OpenRouterOptions
     [Required]
     public string SelectionModel { get; init; } = "openai/gpt-4o";
 
+    /// <summary>Answers Clarko's insights conversation: quick, conversational, cheap.</summary>
+    [Required]
+    public string ChatModel { get; init; } = "openai/gpt-4o-mini";
+
     [Range(1, 120)]
     public int TimeoutSeconds { get; init; } = 30;
 }

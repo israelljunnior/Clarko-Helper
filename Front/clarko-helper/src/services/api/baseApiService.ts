@@ -1,4 +1,4 @@
-import type { InterceptService } from './interceptService'
+import type { InterceptService, ServerSentEvent } from './interceptService'
 
 /**
  * Common ground for services that talk to one area of the Clarko API. Subclasses name their
@@ -20,6 +20,11 @@ export abstract class BaseApiService {
 
   protected post<TBody, TResult>(path: string, body: TBody, signal?: AbortSignal): Promise<TResult> {
     return this.http.send<TResult>({ method: 'POST', url: this.url(path), body }, signal)
+  }
+
+  /** A POST answered with server-sent events, yielded as they arrive. */
+  protected postStream<TBody>(path: string, body: TBody, signal?: AbortSignal): AsyncGenerator<ServerSentEvent> {
+    return this.http.stream({ method: 'POST', url: this.url(path), body }, signal)
   }
 
   /** An empty path is the prefix itself, e.g. GET /api/budget. */

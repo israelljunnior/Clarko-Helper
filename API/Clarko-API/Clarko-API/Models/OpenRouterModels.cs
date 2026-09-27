@@ -1,6 +1,17 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace Clarko_API.Models;
 
-// Property names are serialized as snake_case (see Program.cs) to match OpenRouter's API.
+/// <summary>OpenRouter speaks snake_case JSON; our own API keeps the default camelCase.</summary>
+public static class OpenRouterJson
+{
+    public static JsonSerializerOptions Options { get; } = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+}
 
 public sealed record ChatMessage(string Role, string Content)
 {
@@ -15,7 +26,8 @@ public sealed record ChatCompletionRequest(
     double? Temperature = null,
     int? MaxTokens = null,
     ResponseFormat? ResponseFormat = null,
-    UsageOptions? Usage = null);
+    UsageOptions? Usage = null,
+    bool? Stream = null);
 
 public sealed record ResponseFormat(string Type)
 {
@@ -43,6 +55,21 @@ public sealed record ChatCompletionChoice(int Index, string? FinishReason, ChatC
 public sealed record ChatCompletionMessage(string Role, string? Content);
 
 public sealed record ChatCompletionUsage(int PromptTokens, int CompletionTokens, int TotalTokens, decimal? Cost);
+
+/// <summary>
+/// One server-sent event of a streamed completion: a piece of the answer in <see cref="ChatCompletionChunkChoice.Delta"/>,
+/// the usage (with cost) in the last one, or an <see cref="Error"/> if the provider fails mid-stream.
+/// </summary>
+public sealed record ChatCompletionChunk(
+    IReadOnlyList<ChatCompletionChunkChoice>? Choices,
+    ChatCompletionUsage? Usage,
+    OpenRouterError? Error);
+
+public sealed record ChatCompletionChunkChoice(int Index, ChatCompletionDelta? Delta, string? FinishReason);
+
+public sealed record ChatCompletionDelta(string? Content);
+
+public sealed record OpenRouterError(int? Code, string? Message);
 
 public sealed record KeyInfoResponse(KeyInfo Data);
 

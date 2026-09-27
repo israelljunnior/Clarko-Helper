@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type Ref,
+} from 'react'
 import type { Editor } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import type { EditorState } from '@tiptap/pm/state'
@@ -34,15 +44,23 @@ export interface ClarkoAnchor {
   blockIndex: number
 }
 
+/** Lets the editor window close the popup, e.g. when the author opens Clarko's insights instead. */
+export interface SelectionPopupHandle {
+  close: () => void
+}
+
 interface SelectionPopupProps {
   editor: Editor
   service: SuggestionService
   /** The scrolling pane the editor lives in, so the popup follows the text. */
   scrollTarget: HTMLElement | null
   anchor: ClarkoAnchor | null
+  /** Called whenever the popup appears, so other popups (insights) can make way. */
+  onShow?: () => void
+  ref?: Ref<SelectionPopupHandle>
 }
 
-export function SelectionPopup({ editor, service, scrollTarget, anchor }: SelectionPopupProps) {
+export function SelectionPopup({ editor, service, scrollTarget, anchor, onShow, ref }: SelectionPopupProps) {
   const edit = useSelectionEdit(editor, service)
   const [draft, setDraft] = useState('')
   /** Commands the author added with [+]; they last until the page is reloaded. */
@@ -100,8 +118,9 @@ export function SelectionPopup({ editor, service, scrollTarget, anchor }: Select
       flip: { boundary, padding: 8 },
       shift: { boundary, padding: 12 },
       scrollTarget: boundary,
+      onShow,
     }
-  }, [boundaryElement])
+  }, [boundaryElement, onShow])
 
   // The popup never gets wider than the pane it lives in.
   const [paneWidth, setPaneWidth] = useState<number | null>(null)
@@ -119,6 +138,33 @@ export function SelectionPopup({ editor, service, scrollTarget, anchor }: Select
     if (edit.session) edit.refine(instruction)
     else if (instruction) edit.start(instruction)
   }
+
+  /**
+   * Closes the popup entirely: drops any suggestion and clears the selection that keeps it open.
+   * `focusEditor` puts the caret back in the document (the × button); from outside the popup, focus
+   * is left where the author is going.
+   */
+  const close = ({ focusEditor = true } = {}) => {
+    if (!edit.session && editor.state.selection.empty) return // nothing open
+    if (edit.session) {
+      if (focusEditor) edit.reject()
+      else edit.dismiss() // leave focus to whatever is taking over, e.g. the insights chat box
+    }
+    sessionOpen.current = false // hide on this transaction, not after the next render
+    const chain = focusEditor ? editor.chain().focus() : editor.chain()
+    chain.setTextSelection(editor.state.selection.to).run()
+  }
+
+  useImperativeHandle(ref, () => ({ close: () => close({ focusEditor: false }) }))
+
+  const header = (
+    <div className="selection-popup__header">
+      <ClarkoIdentity />
+      <button type="button" className="selection-popup__close" aria-label="Close" title="Close" onClick={() => close()}>
+        ×
+      </button>
+    </div>
+  )
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== 'Escape') return
@@ -153,12 +199,12 @@ export function SelectionPopup({ editor, service, scrollTarget, anchor }: Select
       >
         {edit.session ? (
           <>
-            <ClarkoIdentity />
+            {header}
             <SessionView session={edit.session} onAccept={edit.accept} onReject={edit.reject} onRetry={edit.retry} />
           </>
         ) : (
           <>
-            <ClarkoIdentity />
+            {header}
             <div className="selection-popup__actions">
               {actions.map((action) => (
                 <button

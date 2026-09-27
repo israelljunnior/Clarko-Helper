@@ -561,6 +561,229 @@ body,
   user-select: none;
 }
 
+/* Insights: a small button on each paragraph in Clarko's pane, shown on hover or keyboard focus. */
+.insights-button {
+  position: absolute;
+  top: -15px;
+  right: -4px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 11px;
+  font: 700 13px/1.4 var(--font-ui);
+  letter-spacing: 0;
+  color: #fff;
+  background: #2c1470;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(8, 2, 30, 0.45);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.mirror__block:hover > .insights-button,
+.insights-button:focus-visible,
+.insights-button.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.insights-button:hover,
+.insights-button.is-open {
+  background: #3a1d8a;
+}
+
+.insights-button:focus-visible {
+  outline: 2px solid #ffd23f;
+  outline-offset: 2px;
+}
+
+/* The insights popup opens just below its paragraph, over the text that follows, so the paragraph
+   being discussed stays readable. */
+.insights {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: -4px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(360px, 100%);
+  padding: 12px;
+  font: 13px/1.5 var(--font-ui);
+  letter-spacing: 0;
+  white-space: normal;
+  color: var(--ink);
+  /* Same surface as the selection popup, so Clarko's two popups look like one family. */
+  background: #2a1172;
+  border: 1px solid var(--window-edge);
+  border-radius: 10px;
+  box-shadow: 0 18px 40px rgba(8, 2, 30, 0.6);
+  cursor: default;
+}
+
+.insights__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.insights__title {
+  font-weight: 600;
+}
+
+.insights__close {
+  padding: 0 4px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-faint);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.insights__close:hover {
+  color: var(--ink);
+}
+
+.insights__close:focus-visible {
+  outline: 2px solid #ffd23f;
+}
+
+.insights__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(214, 196, 255, 0.22) transparent;
+}
+
+.insights__message {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+.insights__message--clarko {
+  background: rgba(255, 210, 63, 0.08);
+  border: 1px solid rgba(255, 210, 63, 0.18);
+}
+
+.insights__message--author {
+  align-self: flex-end;
+  max-width: 85%;
+  background: rgba(124, 196, 255, 0.16);
+  border: 1px solid rgba(124, 196, 255, 0.3);
+}
+
+/* A blinking bar while Clarko's words stream in. */
+.insights__cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: #ffd23f;
+  animation: insights-blink 1s steps(1) infinite;
+}
+
+@keyframes insights-blink {
+  50% { opacity: 0; }
+}
+
+.insights__typing {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 10px;
+}
+
+.insights__typing span {
+  width: 6px;
+  height: 6px;
+  background: #ffd23f;
+  border-radius: 50%;
+  animation: insights-dot 1s ease-in-out infinite;
+}
+
+.insights__typing span:nth-child(2) { animation-delay: 150ms; }
+.insights__typing span:nth-child(3) { animation-delay: 300ms; }
+
+@keyframes insights-dot {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+
+.insights__error {
+  margin: 0;
+  color: var(--delete);
+}
+
+.insights__link {
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--coauthor);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.insights__ask {
+  display: flex;
+  gap: 6px;
+}
+
+.insights__input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  font: inherit;
+  color: var(--ink);
+  background: rgba(10, 2, 36, 0.35);
+  border: 1px solid var(--window-edge);
+  border-radius: 6px;
+}
+
+.insights__input::placeholder { color: var(--ink-faint); }
+
+.insights__input:focus-visible {
+  outline: 2px solid #ffd23f;
+  outline-offset: 1px;
+}
+
+.insights__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--divider);
+}
+
+.insights__go {
+  font-weight: 600;
+  color: #2a1a00;
+  background: #ffd23f;
+  border-color: #ffd23f;
+}
+
+.insights__go:hover {
+  background: #ffe066;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .insights__cursor,
+  .insights__typing span {
+    animation: none;
+  }
+}
+
 /* Autocomplete: the predicted words, waiting to be pulled into the document with Tab. */
 .mirror__ghost {
   color: var(--coauthor);
@@ -744,6 +967,34 @@ body,
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Clarko's line at the top of the popup, with the close button at its right. */
+.selection-popup__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.selection-popup__close {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-faint);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.selection-popup__close:hover {
+  color: var(--ink);
+}
+
+.selection-popup__close:focus-visible {
+  outline: 2px solid var(--user);
 }
 
 .selection-popup__session {

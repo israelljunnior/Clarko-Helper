@@ -16,6 +16,16 @@ public interface IOpenRouterApi
         [Authorize("Bearer")] string apiKey,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// A completion with "stream": true. Returned as the raw response so the server-sent events can be read
+    /// as they arrive (Refit hands it over after the headers); the caller checks the status and disposes it.
+    /// </summary>
+    [Post("/chat/completions")]
+    Task<HttpResponseMessage> StreamChatCompletionAsync(
+        [Body] ChatCompletionRequest request,
+        [Authorize("Bearer")] string apiKey,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Usage and limits of <paramref name="apiKey"/>.</summary>
     [Get("/key")]
     Task<KeyInfoResponse> GetCurrentKeyAsync(

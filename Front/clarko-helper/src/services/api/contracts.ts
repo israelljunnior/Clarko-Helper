@@ -43,6 +43,20 @@ export interface BudgetResponse {
   exhausted: boolean
 }
 
+/** POST /api/chat/insights, answered with server-sent events. */
+export interface InsightsRequest {
+  /** The paragraph the conversation is about. */
+  paragraph: string
+  context?: string
+  /** Oldest first; empty for Clarko's first thoughts, otherwise ends with the author's question. */
+  history: { role: 'author' | 'clarko'; content: string }[]
+}
+
+/** The data of each streamed event: the next piece of Clarko's message. */
+export interface InsightsStreamPiece {
+  text: string
+}
+
 /** RFC 9457 problem details, which the API returns for every error. */
 export interface ProblemDetails {
   type?: string
