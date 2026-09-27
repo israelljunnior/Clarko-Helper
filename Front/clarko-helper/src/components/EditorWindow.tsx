@@ -9,6 +9,7 @@ import { BudgetIndicator } from './BudgetIndicator'
 import { CoAuthorPane, type MirrorBlock, type MirrorSegment } from './CoAuthorPane'
 import { SelectionPopup, type ClarkoAnchor } from './SelectionPopup'
 import { useAutocomplete } from '../hooks/useAutocomplete'
+import { useSyncedScroll } from '../hooks/useSyncedScroll'
 import { getBlockAt, getFullySelectedBlock } from '../hooks/editorBlocks'
 import { SuggestionService } from '../services/suggestionService'
 import { helperApi } from '../services/api'
@@ -56,6 +57,13 @@ export function EditorWindow() {
   })
 
   const autocomplete = useAutocomplete(editor, completions)
+
+  // Scrolling either pane keeps the other on the same paragraph: the editor's top-level blocks and
+  // Clarko's mirror blocks line up one to one. The editor goes first: it leads when content changes.
+  useSyncedScroll(
+    { element: userPane, blocks: '.ProseMirror > *' },
+    { element: clarkoPane, blocks: '.mirror__block' },
+  )
 
   /** Selects a whole paragraph so the selection popup opens on it, ready to review. */
   const selectBlock = (index: number) => {
