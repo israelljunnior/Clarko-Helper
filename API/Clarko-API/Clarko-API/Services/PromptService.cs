@@ -26,7 +26,7 @@ public sealed partial class PromptService
     private const int MaxWordsPerSuggestion = 4;
     private const int MaxReasonLength = 120;
     private const int MaxParagraphLength = 4_000;
-    private const int MaxChatMessages = 16;
+    private const int MaxChatMessages = 14;
     private const int MaxClarkoMessageLength = 2_000;
 
     private const string InjectionMessage =
