@@ -45,7 +45,7 @@ public static class HelperEndpoints
             ResponseFormat: ResponseFormat.JsonObject,
             Usage: UsageOptions.Included);
 
-        var (response, problem) = await SendAsync(openRouter, completion, loggers, cancellationToken);
+        var (response, problem) = await SendAsync(openRouter, options.Value.ApiKey, completion, loggers, cancellationToken);
         if (problem is not null) return problem;
         budget.RecordSpend(response!.Usage);
 
@@ -74,7 +74,7 @@ public static class HelperEndpoints
             ResponseFormat: ResponseFormat.JsonObject,
             Usage: UsageOptions.Included);
 
-        var (response, problem) = await SendAsync(openRouter, completion, loggers, cancellationToken);
+        var (response, problem) = await SendAsync(openRouter, options.Value.ApiKey, completion, loggers, cancellationToken);
         if (problem is not null) return problem;
         budget.RecordSpend(response!.Usage);
 
@@ -91,6 +91,7 @@ public static class HelperEndpoints
 
     private static async Task<(ChatCompletionResponse? Response, ProblemHttpResult? Problem)> SendAsync(
         IOpenRouterApi openRouter,
+        string apiKey,
         ChatCompletionRequest request,
         ILoggerFactory loggers,
         CancellationToken cancellationToken)
@@ -99,7 +100,7 @@ public static class HelperEndpoints
 
         try
         {
-            var response = await openRouter.CreateChatCompletionAsync(request, cancellationToken);
+            var response = await openRouter.CreateChatCompletionAsync(request, apiKey, cancellationToken);
 
             logger.LogInformation(
                 "{Model} answered with {Tokens} tokens, cost {Cost} USD",
