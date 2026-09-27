@@ -332,8 +332,7 @@ function ClarkoIdentity() {
     <span className="selection-popup__identity" aria-hidden="true">
       <span className="presence presence--ai" />
       <img className="pane__avatar" src={clarkoHead} alt="" />
-      <span >How can I Help you ? :)</span>
-
+      <span >How can I Help you ?</span>
     </span>
   )
 }
