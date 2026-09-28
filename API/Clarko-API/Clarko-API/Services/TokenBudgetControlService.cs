@@ -29,6 +29,7 @@ public sealed class TokenBudgetControlService(
     public int SuggestionMaxTokens => _options.SuggestionMaxTokens;
     public int SelectionMaxTokens => _options.SelectionMaxTokens;
     public int ChatMaxTokens => _options.ChatMaxTokens;
+    public int SearchMaxTokens => _options.SearchMaxTokens;
 
     /// <summary>The 402 the endpoints return when the budget is used up, whether we or OpenRouter noticed first.</summary>
     public static ProblemHttpResult BudgetExhausted() =>

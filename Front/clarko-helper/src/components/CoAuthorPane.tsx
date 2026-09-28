@@ -1,6 +1,7 @@
 import type { CSSProperties, KeyboardEvent } from 'react'
 import clarkoHead from '../assets/clarko-head.png'
 import type { Completion } from '../hooks/useAutocomplete'
+import type { SearchHit } from '../hooks/useDocumentSearch'
 import type { InsightsService } from '../services/insightsService'
 import { InsightsPopup } from './InsightsPopup'
 
@@ -57,6 +58,50 @@ function fontBefore(segments: MirrorSegment[]): CSSProperties | undefined {
   return last ? fontStyle(last) : undefined
 }
 
+/** The block's text with search matches marked, keeping each run's font. */
+function HighlightedText({ segments, hits }: { segments: MirrorSegment[]; hits: SearchHit[] }) {
+  const sorted = [...hits].sort((a, b) => a.start - b.start)
+  const pieces: { key: string; text: string; style?: CSSProperties; hit?: SearchHit }[] = []
+  let offset = 0
+  segments.forEach((segment, segmentIndex) => {
+    const style = fontStyle(segment)
+    let cursor = 0
+    while (cursor < segment.text.length) {
+      const position = offset + cursor
+      const hit = sorted.find((h) => position >= h.start && position < h.start + h.length)
+      const nextStart = sorted.find((h) => h.start > position)?.start ?? Infinity
+      const end = hit
+        ? Math.min(segment.text.length, hit.start + hit.length - offset)
+        : Math.min(segment.text.length, nextStart - offset)
+      pieces.push({ key: `${segmentIndex}:${cursor}`, text: segment.text.slice(cursor, end), style, hit })
+      cursor = end
+    }
+    offset += segment.text.length
+  })
+
+  return pieces.map((piece) =>
+    piece.hit ? (
+      <mark key={piece.key} className={piece.hit.current ? 'search-hit is-current' : 'search-hit'} style={piece.style}>
+        {piece.text}
+      </mark>
+    ) : (
+      <span key={piece.key} style={piece.style}>
+        {piece.text}
+      </span>
+    ),
+  )
+}
+
+/** A magnifying glass, drawn in the current text color. */
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" strokeWidth="2.4" />
+      <path d="m15.5 15.5 5 5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 /**
  * Clarko's cursor with its name tag, like a collaborator's caret. Inline it marks where suggested words
  * start; as `span` it runs down the whole paragraph Clarko has selected.
@@ -89,6 +134,9 @@ interface CoAuthorPaneProps {
   insightsFor: number | null
   onOpenInsights: (index: number) => void
   onCloseInsights: () => void
+  onOpenSearch: () => void
+  /** Search matches to highlight in Clarko's copy of the document. */
+  searchHits: SearchHit[]
 }
 
 export function CoAuthorPane({
@@ -102,6 +150,8 @@ export function CoAuthorPane({
   insightsFor,
   onOpenInsights,
   onCloseInsights,
+  onOpenSearch,
+  searchHits,
 }: CoAuthorPaneProps) {
   const status = completion
     ? 'Tab to add the next words, Esc to dismiss'
@@ -115,6 +165,9 @@ export function CoAuthorPane({
         <span className="presence presence--ai" aria-hidden="true" />
         <img className="pane__avatar" src={clarkoHead} alt="" aria-hidden="true" />
         <span className="pane__name">Clarko</span>
+        <button type="button" className="pane__search" title="Search the document" aria-label="Search the document" onClick={onOpenSearch}>
+          <SearchIcon />
+        </button>
         <span className="pane__status" aria-live="polite">
           {status}
         </span>
@@ -188,6 +241,8 @@ export function CoAuthorPane({
                       <StyledText segments={block.segments} />
                     </span>
                   </div>
+                ) : searchHits.some((hit) => hit.paragraph === index) ? (
+                  <HighlightedText segments={block.segments} hits={searchHits.filter((hit) => hit.paragraph === index)} />
                 ) : !block.text ? (
                   ' '
                 ) : (

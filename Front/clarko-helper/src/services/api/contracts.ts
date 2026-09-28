@@ -34,6 +34,30 @@ export interface SelectionResponse {
   reason: string
 }
 
+/** POST /api/helper/search */
+export interface SearchRequest {
+  /** What to find: exact text, or an idea when no exact match exists. Up to 300 characters. */
+  query: string
+  /** The document, one entry per top-level paragraph or heading, in order. */
+  paragraphs: string[]
+}
+
+export interface SearchResponse {
+  /** "exact": the text itself, found without the model. "related": passages the model judged related. */
+  kind: 'exact' | 'related' | 'none'
+  matches: SearchMatch[]
+}
+
+/** `start` and `length` are character offsets into paragraph `paragraph`; `text` is that slice of it. */
+export interface SearchMatch {
+  paragraph: number
+  start: number
+  length: number
+  text: string
+  /** Why a related passage matches (related results only). */
+  reason?: string | null
+}
+
 /** GET /api/budget: the app's AI spend against its cap, in USD. */
 export interface BudgetResponse {
   spentUsd: number

@@ -929,26 +929,115 @@ body,
   gap: 6px;
 }
 
-/* [+] and the inline field for naming a new command. */
+/* [+] opens the "new command" section under the buttons. */
 .selection-popup__add {
   min-width: 32px;
   justify-content: center;
   font-weight: 600;
 }
 
-.selection-popup__new {
-  display: inline-flex;
+.selection-popup__add.is-active {
+  border-color: #ffd23f;
+  color: #ffd23f;
+}
+
+.new-command {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--divider);
+}
+
+.new-command__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.new-command__label-row {
+  display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.selection-popup__new-input {
-  flex: 0 0 auto;
-  width: 17ch;
+.new-command__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
 }
 
-.selection-popup__new-input[aria-invalid='true'] {
+/* The shared input style grows along a row; stacked in a column here, it keeps its natural height. */
+.new-command .selection-popup__input {
+  flex: none;
+}
+
+.new-command .selection-popup__input[aria-invalid='true'] {
   border-color: var(--delete);
+}
+
+.new-command__error {
+  font-size: 11px;
+  color: var(--delete);
+}
+
+.new-command__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.new-command__save:not(:disabled) {
+  font-weight: 600;
+  color: #2a1a00;
+  background: #ffd23f;
+  border-color: #ffd23f;
+}
+
+/* A yellow "i" whose explanation appears on hover or keyboard focus. */
+.info-tip {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  font: 700 11px/1 var(--font-ui);
+  font-style: italic;
+  color: #2a1a00;
+  background: #ffd23f;
+  border-radius: 50%;
+  cursor: help;
+}
+
+.info-tip:focus-visible {
+  outline: 2px solid #ffd23f;
+  outline-offset: 2px;
+}
+
+.info-tip__bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  /* Opens to the right of the icon: it sits near the popup's left edge, so centring would clip it. */
+  left: -6px;
+  z-index: 5;
+  width: max-content;
+  max-width: 230px;
+  padding: 6px 9px;
+  font: 400 12px/1.4 var(--font-ui);
+  font-style: normal;
+  color: var(--ink);
+  background: #1a0b45;
+  border: 1px solid rgba(255, 210, 63, 0.45);
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(8, 2, 30, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.info-tip:hover .info-tip__bubble,
+.info-tip:focus-visible .info-tip__bubble {
+  opacity: 1;
 }
 
 .selection-popup__count {
@@ -1188,3 +1277,185 @@ kbd {
     animation: none;
   }
 }
+
+/* The magnifying glass next to Clarko's icon in its pane header. */
+.pane__search {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: #fff;
+  background: rgba(255, 210, 63, 0.12);
+  border: 1px solid rgba(255, 210, 63, 0.45);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.pane__search:hover {
+  background: rgba(255, 210, 63, 0.26);
+}
+
+.pane__search:focus-visible {
+  outline: 2px solid #ffd23f;
+  outline-offset: 2px;
+}
+
+/* Search matches, highlighted the same way in the editor and in Clarko's copy. */
+.search-hit {
+  color: inherit;
+  background: rgba(255, 210, 63, 0.28);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(255, 210, 63, 0.35);
+}
+
+.search-hit.is-current {
+  background: rgba(255, 210, 63, 0.55);
+  box-shadow: 0 0 0 2px #ffd23f;
+}
+
+/* Clarko Searching: a popup in the middle of the page, over the editor. */
+.search-dialog {
+  position: fixed;
+  top: 22vh;
+  left: 50%;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(520px, calc(100vw - 32px));
+  max-height: 60vh;
+  padding: 14px;
+  font: 13px/1.45 var(--font-ui);
+  color: var(--ink);
+  background: #2a1172;
+  border: 1px solid var(--window-edge);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(8, 2, 30, 0.65);
+  transform: translateX(-50%);
+}
+
+.search-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.search-dialog__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.search-dialog__close {
+  padding: 0 4px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-faint);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.search-dialog__close:hover { color: var(--ink); }
+.search-dialog__close:focus-visible { outline: 2px solid var(--user); }
+
+.search-dialog__form {
+  display: flex;
+  gap: 8px;
+}
+
+.search-dialog__input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: rgba(10, 2, 36, 0.35);
+  border: 1px solid var(--window-edge);
+  border-radius: 8px;
+}
+
+.search-dialog__input::placeholder { color: var(--ink-faint); }
+
+.search-dialog__input:focus-visible {
+  outline: 2px solid #ffd23f;
+  outline-offset: 1px;
+}
+
+.search-dialog__find:not(:disabled) {
+  font-weight: 600;
+  color: #2a1a00;
+  background: #ffd23f;
+  border-color: #ffd23f;
+}
+
+.search-dialog__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.search-dialog__results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(214, 196, 255, 0.22) transparent;
+}
+
+.search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.search-result:hover { background: rgba(255, 255, 255, 0.09); }
+
+.search-result.is-current {
+  border-color: rgba(255, 210, 63, 0.55);
+  background: rgba(255, 210, 63, 0.08);
+}
+
+.search-result:focus-visible {
+  outline: 2px solid #ffd23f;
+  outline-offset: 1px;
+}
+
+.search-result__where {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.search-result__text mark {
+  color: inherit;
+  background: rgba(255, 210, 63, 0.35);
+  border-radius: 2px;
+}
+
+.search-result__reason {
+  font-size: 12px;
+  color: var(--coauthor);
+}
+

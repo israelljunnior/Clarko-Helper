@@ -24,6 +24,10 @@ public sealed class OpenRouterOptions
     [Required]
     public string ChatModel { get; init; } = "openai/gpt-4o-mini";
 
+    /// <summary>Finds related content when a search has no exact match. Run at temperature 0 for repeatable results.</summary>
+    [Required]
+    public string SearchModel { get; init; } = "openai/gpt-4o-mini";
+
     [Range(1, 120)]
     public int TimeoutSeconds { get; init; } = 30;
 }
@@ -36,6 +40,9 @@ public enum Temperature
 
     /// <summary>More varied, inventive output (0.7).</summary>
     Creative,
+
+    /// <summary>The same answer for the same input, as far as the model allows (0.0). Used by search.</summary>
+    Exact,
 }
 
 public static class TemperatureExtensions
@@ -44,6 +51,7 @@ public static class TemperatureExtensions
     {
         Temperature.Deterministic => 0.3,
         Temperature.Creative => 0.7,
+        Temperature.Exact => 0.0,
         _ => throw new ArgumentOutOfRangeException(nameof(temperature), temperature, null),
     };
 }

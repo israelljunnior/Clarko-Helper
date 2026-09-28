@@ -4,7 +4,9 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useId,
   useState,
+  type FormEvent,
   type KeyboardEvent,
   type MouseEvent,
   type Ref,
@@ -25,6 +27,9 @@ interface QuickAction {
 
 /** Longest label for a command the author adds; it also has to fit on a button. */
 const MAX_COMMAND_LENGTH = 15
+/** Matches the API's limit for an instruction. */
+const MAX_INSTRUCTION_LENGTH = 300
+const INSTRUCTION_HELP = 'What Clarko should do with the selected text, like "Add a few friendly emojis".'
 
 const QUICK_ACTIONS: QuickAction[] = [
   {
@@ -67,10 +72,20 @@ export function SelectionPopup({ editor, service, scrollTarget, anchor, onShow, 
   const [customActions, setCustomActions] = useState<QuickAction[]>([])
   const actions = [...QUICK_ACTIONS, ...customActions]
 
-  const addCommand = (label: string) => {
-    // The label doubles as the instruction, e.g. "Add emojis" or "Use bullet points".
-    setCustomActions((current) => [...current, { label, instruction: label }])
+  /** Whether the "new command" section under the buttons is open. */
+  const [adding, setAdding] = useState(false)
+  // Every time the popup closes, the "new command" section closes with it, so it opens with just the buttons.
+  const onHide = useCallback(() => setAdding(false), [])
+
+  const addCommand = (label: string, instruction: string) => {
+    setCustomActions((current) => [...current, { label, instruction }])
+    setAdding(false)
     editor.commands.focus() // back to the selection, so the new command can be used right away
+  }
+
+  const cancelAdding = () => {
+    setAdding(false)
+    editor.commands.focus()
   }
 
   const sessionOpen = useRef(false)
@@ -119,8 +134,9 @@ export function SelectionPopup({ editor, service, scrollTarget, anchor, onShow, 
       shift: { boundary, padding: 12 },
       scrollTarget: boundary,
       onShow,
+      onHide,
     }
-  }, [boundaryElement, onShow])
+  }, [boundaryElement, onShow, onHide])
 
   // The popup never gets wider than the pane it lives in.
   const [paneWidth, setPaneWidth] = useState<number | null>(null)
@@ -216,12 +232,20 @@ export function SelectionPopup({ editor, service, scrollTarget, anchor, onShow, 
                   {action.label}
                 </button>
               ))}
-              <AddCommand
-                taken={actions.map((action) => action.label)}
-                onAdd={addCommand}
-                onCancel={() => editor.commands.focus()}
-              />
+              <button
+                type="button"
+                className={adding ? 'button button--quiet selection-popup__add is-active' : 'button button--quiet selection-popup__add'}
+                title="Add a command"
+                aria-label="Add a command"
+                aria-expanded={adding}
+                onClick={() => setAdding((open) => !open)}
+              >
+                +
+              </button>
             </div>
+            {adding && (
+              <NewCommandForm taken={actions.map((action) => action.label)} onAdd={addCommand} onCancel={cancelAdding} />
+            )}
           </>
         )}
 
@@ -230,6 +254,7 @@ export function SelectionPopup({ editor, service, scrollTarget, anchor, onShow, 
             <input
               className="selection-popup__input"
               value={draft}
+              maxLength={MAX_INSTRUCTION_LENGTH}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => event.key === 'Enter' && submit()}
               placeholder={edit.session ? 'Refine it: shorter, add an example…' : 'Or tell Clarko what to change…'}
@@ -247,82 +272,104 @@ export function SelectionPopup({ editor, service, scrollTarget, anchor, onShow, 
   )
 }
 
-interface AddCommandProps {
+/** A small yellow "i" that explains a field on hover or keyboard focus. */
+function InfoTip({ text }: { text: string }) {
+  const id = useId()
+  return (
+    <span className="info-tip" tabIndex={0} role="button" aria-label="More information" aria-describedby={id}>
+      i
+      <span id={id} role="tooltip" className="info-tip__bubble">
+        {text}
+      </span>
+    </span>
+  )
+}
+
+interface NewCommandFormProps {
   /** Labels already in use, so the same command isn't added twice. */
   taken: string[]
-  onAdd: (label: string) => void
+  onAdd: (label: string, instruction: string) => void
   onCancel: () => void
 }
 
-/** The [+] button: opens a small field to name a new command. Enter saves it, Esc cancels. */
-function AddCommand({ taken, onAdd, onCancel }: AddCommandProps) {
-  const [open, setOpen] = useState(false)
+/**
+ * The section under the command buttons for adding a command: a short label for its button and the
+ * instruction Clarko follows when it's clicked. Enter adds it, Esc cancels.
+ */
+function NewCommandForm({ taken, onAdd, onCancel }: NewCommandFormProps) {
   const [label, setLabel] = useState('')
+  const [instruction, setInstruction] = useState('')
+  const labelId = useId()
+  const instructionId = useId()
 
-  const trimmed = label.trim()
-  const duplicate = taken.some((existing) => existing.toLowerCase() === trimmed.toLowerCase())
-  const canSave = trimmed !== '' && !duplicate
+  const trimmedLabel = label.trim()
+  const trimmedInstruction = instruction.trim()
+  const duplicate = taken.some((existing) => existing.toLowerCase() === trimmedLabel.toLowerCase())
+  const canSave = trimmedLabel !== '' && trimmedInstruction !== '' && !duplicate
 
-  const close = () => {
-    setOpen(false)
-    setLabel('')
+  const save = (event: FormEvent) => {
+    event.preventDefault()
+    if (canSave) onAdd(trimmedLabel, trimmedInstruction)
   }
 
-  const save = () => {
-    if (!canSave) return
-    onAdd(trimmed)
-    close()
-  }
-
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      save()
-    } else if (event.key === 'Escape') {
-      // Esc here only closes the field; it must not reach the popup, which would drop the selection.
-      event.preventDefault()
-      event.stopPropagation()
-      close()
-      onCancel()
-    }
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        className="button button--quiet selection-popup__add"
-        title="Add a command"
-        aria-label="Add a command"
-        onClick={() => setOpen(true)}
-      >
-        +
-      </button>
-    )
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return
+    // Esc here only closes this section; it must not reach the popup, which would drop the selection.
+    event.preventDefault()
+    event.stopPropagation()
+    onCancel()
   }
 
   return (
-    <span className="selection-popup__new">
-      <input
-        className="selection-popup__input selection-popup__new-input"
-        value={label}
-        maxLength={MAX_COMMAND_LENGTH}
-        placeholder="New command"
-        aria-label={`New command, up to ${MAX_COMMAND_LENGTH} characters`}
-        aria-invalid={duplicate}
-        title={duplicate ? 'That command already exists' : undefined}
-        autoFocus
-        onChange={(event) => setLabel(event.target.value)}
-        onKeyDown={onKeyDown}
-        onBlur={() => !trimmed && close()}
-      />
-      <span className="selection-popup__count" aria-hidden="true">
-        {label.length}/{MAX_COMMAND_LENGTH}
-      </span>
-      <button type="button" className="button" disabled={!canSave} onClick={save}>
-        Add
-      </button>
-    </span>
+    <form className="new-command" onSubmit={save} onKeyDown={onKeyDown} aria-label="New command">
+      <div className="new-command__field">
+        <div className="new-command__label-row">
+          <label htmlFor={labelId} className="new-command__label">
+            Label
+          </label>
+          <span className="selection-popup__count" aria-hidden="true">
+            {label.length}/{MAX_COMMAND_LENGTH}
+          </span>
+        </div>
+        <input
+          id={labelId}
+          className="selection-popup__input"
+          value={label}
+          maxLength={MAX_COMMAND_LENGTH}
+          placeholder="e.g. Add emojis"
+          aria-invalid={duplicate}
+          autoFocus
+          onChange={(event) => setLabel(event.target.value)}
+        />
+        {duplicate && <span className="new-command__error">That command already exists.</span>}
+      </div>
+
+      <div className="new-command__field">
+        <div className="new-command__label-row">
+          <label htmlFor={instructionId} className="new-command__label">
+            Instruction
+          </label>
+          <InfoTip text={INSTRUCTION_HELP} />
+        </div>
+        <input
+          id={instructionId}
+          className="selection-popup__input"
+          value={instruction}
+          maxLength={MAX_INSTRUCTION_LENGTH}
+          placeholder="e.g. Add a few friendly emojis"
+          onChange={(event) => setInstruction(event.target.value)}
+        />
+      </div>
+
+      <div className="new-command__buttons">
+        <button type="button" className="button button--quiet" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="submit" className="button new-command__save" disabled={!canSave}>
+          Add command
+        </button>
+      </div>
+    </form>
   )
 }
 

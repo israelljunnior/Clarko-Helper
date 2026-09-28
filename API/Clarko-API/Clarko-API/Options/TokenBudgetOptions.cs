@@ -33,4 +33,8 @@ public sealed class TokenBudgetOptions
     /// <summary>One insights message: a short paragraph of thoughts or an answer to a question.</summary>
     [Range(1, 4000)]
     public int ChatMaxTokens { get; init; } = 300;
+
+    /// <summary>A search answer: up to five short quotes with reasons.</summary>
+    [Range(1, 4000)]
+    public int SearchMaxTokens { get; init; } = 500;
 }

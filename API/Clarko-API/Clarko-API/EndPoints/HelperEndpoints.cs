@@ -19,6 +19,7 @@ public static class HelperEndpoints
 
         helper.MapPost("/suggestionautocomplete", SuggestNextWordsAsync).WithName("SuggestionAutocomplete");
         helper.MapPost("/selectionautocomplete", RefineSelectionAsync).WithName("SelectionAutocomplete");
+        helper.MapPost("/search", SearchDocumentAsync).WithName("Search");
 
         return app;
     }
@@ -88,6 +89,50 @@ public static class HelperEndpoints
 
         return TypedResults.Ok(new SelectionResponse(revision.Revised, revision.Reason));
     }
+
+    /// <summary>
+    /// Finds the query in the document. Exact matches come first and need no model, so they are instant,
+    /// free and always the same; only when there are none does the search model look for related content,
+    /// at temperature 0 with a fixed seed, and every quote it returns is checked against the document.
+    /// </summary>
+    private static async Task<Results<Ok<SearchResponse>, ValidationProblem, ProblemHttpResult>> SearchDocumentAsync(
+        SearchRequest request,
+        PromptService prompts,
+        TokenBudgetControlService budget,
+        IOpenRouterApi openRouter,
+        IOptions<OpenRouterOptions> options,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+    {
+        var validation = prompts.ValidateSearch(request);
+        if (!validation.IsValid) return TypedResults.ValidationProblem(validation.Errors);
+
+        var exact = DocumentSearch.FindExact(request.Query, request.Paragraphs);
+        if (exact.Count > 0) return TypedResults.Ok(new SearchResponse(SearchResponse.ExactKind, exact));
+
+        if (!await budget.HasBudgetAsync(cancellationToken)) return TokenBudgetControlService.BudgetExhausted();
+
+        var completion = new ChatCompletionRequest(
+            Model: options.Value.SearchModel,
+            Messages: prompts.BuildSearchPrompt(request),
+            Temperature: Temperature.Exact.ToValue(),
+            MaxTokens: budget.SearchMaxTokens,
+            ResponseFormat: ResponseFormat.JsonObject,
+            Usage: UsageOptions.Included,
+            Seed: SearchSeed);
+
+        var (response, problem) = await SendAsync(openRouter, options.Value.ApiKey, completion, loggers, cancellationToken);
+        if (problem is not null) return problem;
+        budget.RecordSpend(response!.Usage);
+
+        var related = prompts.ParseRelatedMatches(response.FirstContent, request.Paragraphs);
+        return TypedResults.Ok(new SearchResponse(
+            related.Count > 0 ? SearchResponse.RelatedKind : SearchResponse.NoneKind,
+            related));
+    }
+
+    /// <summary>A fixed seed, so providers that support it sample the same way for the same search.</summary>
+    private const int SearchSeed = 2026;
 
     private static async Task<(ChatCompletionResponse? Response, ProblemHttpResult? Problem)> SendAsync(
         IOpenRouterApi openRouter,

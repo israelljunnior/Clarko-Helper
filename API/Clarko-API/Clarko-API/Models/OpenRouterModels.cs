@@ -27,7 +27,8 @@ public sealed record ChatCompletionRequest(
     int? MaxTokens = null,
     ResponseFormat? ResponseFormat = null,
     UsageOptions? Usage = null,
-    bool? Stream = null);
+    bool? Stream = null,
+    int? Seed = null);
 
 public sealed record ResponseFormat(string Type)
 {

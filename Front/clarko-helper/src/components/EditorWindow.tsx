@@ -10,6 +10,9 @@ import { CoAuthorPane, type MirrorBlock, type MirrorSegment } from './CoAuthorPa
 import { SelectionPopup, type ClarkoAnchor, type SelectionPopupHandle } from './SelectionPopup'
 import { useAutocomplete } from '../hooks/useAutocomplete'
 import { useSyncedScroll } from '../hooks/useSyncedScroll'
+import { useDocumentSearch } from '../hooks/useDocumentSearch'
+import { SearchHighlight } from '../extensions/searchHighlight'
+import { SearchPopup } from './SearchPopup'
 import { getBlockAt, getFullySelectedBlock } from '../hooks/editorBlocks'
 import { SuggestionService } from '../services/suggestionService'
 import { chatApi, helperApi } from '../services/api'
@@ -60,6 +63,7 @@ export function EditorWindow() {
       TextStyle,
       FontFamily,
       FontSize,
+      SearchHighlight,
     ],
     content: INITIAL_CONTENT,
     editorProps: {
@@ -68,6 +72,19 @@ export function EditorWindow() {
   })
 
   const autocomplete = useAutocomplete(editor, completions)
+
+  // Clarko Searching: one popup at a time, so opening it closes the selection popup and insights.
+  const documentSearch = useDocumentSearch(editor, clarkoPane)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const openSearch = () => {
+    selectionPopup.current?.close()
+    setInsightsFor(null)
+    setSearchOpen(true)
+  }
+  const closeSearch = () => {
+    setSearchOpen(false)
+    documentSearch.clear()
+  }
 
   // Scrolling either pane keeps the other on the same paragraph: the editor's top-level blocks and
   // Clarko's mirror blocks line up one to one. The editor goes first: it leads when content changes.
@@ -232,12 +249,26 @@ export function EditorWindow() {
               insightsFor={insightsFor}
               onOpenInsights={openInsights}
               onCloseInsights={closeInsights}
+              onOpenSearch={openSearch}
+              searchHits={searchOpen ? documentSearch.hits : []}
             />
           </div>
 
           <footer className="window__footer">
             {snapshot.words} Words • {snapshot.characters} Characters • {snapshot.lines} Lines
           </footer>
+
+          {searchOpen && (
+            <SearchPopup
+              status={documentSearch.status}
+              result={documentSearch.result}
+              current={documentSearch.current}
+              paragraphs={snapshot.blocks.map((block) => block.text)}
+              onSearch={(query) => void documentSearch.search(query)}
+              onSelect={documentSearch.setCurrent}
+              onClose={closeSearch}
+            />
+          )}
         </div>
       </div>
     </main>
