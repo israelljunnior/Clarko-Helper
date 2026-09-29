@@ -20,7 +20,7 @@ import clarkoLogo from '../assets/clarko-logo.png'
 
 const INITIAL_CONTENT = `
 <h1>A first draft</h1>
-<p>Start writing here. Clarko suggests your next words as you type. Click a paragraph on the right to have it reviewed.</p>
+<p>Start writing here. Press Ctrl+Space and Clarko suggests your next words. Click a paragraph on the right to have it reviewed.</p>
 <p>try it: i think this editor is very usefull  when you dont have time to proofread .</p>
 `
 

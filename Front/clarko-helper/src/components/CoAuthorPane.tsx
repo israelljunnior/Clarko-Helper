@@ -157,7 +157,7 @@ export function CoAuthorPane({
     ? 'Tab to add the next words, Esc to dismiss'
     : selectedBlock !== null
       ? 'Pick what to do in the popup'
-      : 'Click a paragraph to review it'
+      : 'Ctrl+Space for next words suggestions · click a paragraph to review it'
 
   return (
     <section className="pane pane--coauthor" aria-label="Clarko">

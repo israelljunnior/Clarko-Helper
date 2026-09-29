@@ -3,9 +3,6 @@ import type { Editor } from '@tiptap/react'
 import type { CompletionService } from '../services/completionService'
 import { getCurrentBlock, isOtherTextField } from './editorBlocks'
 
-const PAUSE_MS = 350
-/** Short enough to feel immediate on a click, long enough that holding an arrow key doesn't flood requests. */
-const CURSOR_MOVE_MS = 120
 const MAX_LINE_CHARS = 500
 const MAX_CONTEXT_CHARS = 1000
 
@@ -29,16 +26,23 @@ function contextBefore(editor: Editor, blockIndex: number): string {
 
 const WORD_CHAR = /[\p{L}\p{N}]/u
 
+/** True for Ctrl+Space, the shortcut that asks Clarko for the next words. */
+function isSuggestShortcut(event: KeyboardEvent): boolean {
+  return event.ctrlKey && !event.altKey && !event.metaKey && (event.code === 'Space' || event.key === ' ')
+}
+
 /**
- * Suggests the next words wherever the cursor is: after a pause in typing, or as soon as the author
- * clicks or moves the cursor. Only the paragraph's text before the cursor is used, so it works in the
- * middle of a sentence too. The words appear in Clarko's pane, and Tab moves them into the document.
- * Selecting text, such as a paragraph picked for review in Clarko's pane, clears them.
+ * Suggests the next words at the cursor, only when the author asks with Ctrl+Space in the editor. Only
+ * the paragraph's text before the cursor is used, so it works in the middle of a sentence too. The words
+ * appear in Clarko's pane, and Tab moves them into the document. Typing, moving the cursor or selecting
+ * text clears them, since they no longer fit where the cursor is.
  */
 export function useAutocomplete(editor: Editor | null, service: CompletionService) {
   const [completion, setCompletion] = useState<Completion | null>(null)
 
   const completionRef = useRef<Completion | null>(null)
+  /** Asks for suggestions at the cursor; set up with the editor below and called by Ctrl+Space. */
+  const requestRef = useRef<(() => void) | null>(null)
   useEffect(() => {
     completionRef.current = completion
   }, [completion])
@@ -46,11 +50,9 @@ export function useAutocomplete(editor: Editor | null, service: CompletionServic
   useEffect(() => {
     if (!editor) return
 
-    let timer: ReturnType<typeof setTimeout> | undefined
     let inFlight: AbortController | null = null
 
     const reset = () => {
-      clearTimeout(timer)
       inFlight?.abort()
       inFlight = null
       setCompletion(null)
@@ -103,19 +105,16 @@ export function useAutocomplete(editor: Editor | null, service: CompletionServic
       }
     }
 
-    const schedule = (delay: number) => {
+    // Ctrl+Space asks for suggestions at the cursor, replacing any that are showing.
+    requestRef.current = () => {
       reset()
-      timer = setTimeout(() => void request(), delay)
+      void request()
     }
 
-    const onUpdate = () => schedule(PAUSE_MS)
-
-    // A click or arrow key puts the cursor somewhere new: suggest for that spot right away.
-    // Selecting text clears the suggestion instead.
+    // Typing, moving the cursor or selecting text leaves the suggestion out of place, so it goes.
+    const onUpdate = () => reset()
     const onSelectionUpdate = ({ transaction }: { transaction: { docChanged: boolean } }) => {
-      if (transaction.docChanged) return // typing: onUpdate waits for the pause
-      if (editor.state.selection.empty) schedule(CURSOR_MOVE_MS)
-      else reset()
+      if (!transaction.docChanged) reset() // typing is handled by onUpdate
     }
 
     editor.on('update', onUpdate)
@@ -123,7 +122,7 @@ export function useAutocomplete(editor: Editor | null, service: CompletionServic
     return () => {
       editor.off('update', onUpdate)
       editor.off('selectionUpdate', onSelectionUpdate)
-      clearTimeout(timer)
+      requestRef.current = null
       inFlight?.abort()
     }
   }, [editor, service])
@@ -157,6 +156,14 @@ export function useAutocomplete(editor: Editor | null, service: CompletionServic
     if (!editor) return
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (isSuggestShortcut(event)) {
+        if (!editor.view.hasFocus()) return // only while writing in the editor
+        event.preventDefault()
+        event.stopPropagation()
+        requestRef.current?.()
+        return
+      }
+
       if (!completionRef.current || event.shiftKey) return
       if (event.key !== 'Tab' && event.key !== 'Escape') return
       if (isOtherTextField(event.target, editor.view.dom)) return
