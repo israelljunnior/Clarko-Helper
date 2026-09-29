@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { helperApi, type SearchResponse } from '../services/api'
-import { getBlockAt } from './editorBlocks'
+import { blockText, getBlockAt, textBetween } from './editorBlocks'
 import { setSearchHighlights, type HighlightRange } from '../extensions/searchHighlight'
 
 export type SearchStatus = 'idle' | 'searching' | 'done' | 'error'
@@ -39,7 +39,7 @@ export function useDocumentSearch(editor: Editor | null, clarkoPane: HTMLElement
 
       // One entry per top-level block, in order: match positions refer to these indexes.
       const paragraphs: string[] = []
-      editor.state.doc.forEach((node) => paragraphs.push(node.textContent))
+      editor.state.doc.forEach((node) => paragraphs.push(blockText(node)))
 
       setStatus('searching')
       setResult(null)
@@ -89,8 +89,8 @@ export function useDocumentSearch(editor: Editor | null, clarkoPane: HTMLElement
       if (!block) return
       const from = block.from + match.start
       const to = from + match.length
-      // Only highlight where the text really is (a hard break inside a paragraph shifts positions).
-      if (to > block.to || editor.state.doc.textBetween(from, to) !== match.text) return
+      // Only highlight where the text really is (a safety net: positions and offsets match by design).
+      if (to > block.to || textBetween(editor, from, to) !== match.text) return
       ranges.push({ from, to, current: index === current })
     })
     setSearchHighlights(editor, ranges)

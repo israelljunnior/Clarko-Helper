@@ -1,5 +1,22 @@
 import type { Editor } from '@tiptap/react'
 import type { EditorState } from '@tiptap/pm/state'
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
+
+/**
+ * How a line break (Shift+Enter) reads as text. A break takes exactly one position in the document, like
+ * one character, so counting it as "\n" keeps character offsets and document positions in step.
+ */
+export const LINE_BREAK = '\n'
+
+/** A block's text with its line breaks, so Clarko's pane, autocomplete and search all see the same text. */
+export function blockText(node: ProseMirrorNode): string {
+  return node.isTextblock ? node.textBetween(0, node.content.size, undefined, LINE_BREAK) : node.textContent
+}
+
+/** The document's text between two positions inside one block, line breaks included. */
+export function textBetween(editor: Editor, from: number, to: number): string {
+  return editor.state.doc.textBetween(from, to, undefined, LINE_BREAK)
+}
 
 export interface BlockRange {
   index: number
@@ -20,7 +37,7 @@ export function getCurrentBlock(editor: Editor): BlockRange | null {
     index: $from.index(0),
     from: $from.start(1),
     to: $from.end(1),
-    text: node.textContent,
+    text: blockText(node),
   }
 }
 
@@ -34,7 +51,7 @@ export function getBlockAt(editor: Editor, index: number): BlockRange | null {
 
   let offset = 0
   for (let i = 0; i < index; i++) offset += doc.child(i).nodeSize
-  return { index, from: offset + 1, to: offset + node.nodeSize - 1, text: node.textContent }
+  return { index, from: offset + 1, to: offset + node.nodeSize - 1, text: blockText(node) }
 }
 
 /** The index of the top-level block whose whole text is selected, or null. */

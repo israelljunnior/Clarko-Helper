@@ -13,7 +13,7 @@ import { useSyncedScroll } from '../hooks/useSyncedScroll'
 import { useDocumentSearch } from '../hooks/useDocumentSearch'
 import { SearchHighlight } from '../extensions/searchHighlight'
 import { SearchPopup } from './SearchPopup'
-import { getBlockAt, getFullySelectedBlock } from '../hooks/editorBlocks'
+import { LINE_BREAK, blockText, getBlockAt, getFullySelectedBlock } from '../hooks/editorBlocks'
 import { SuggestionService } from '../services/suggestionService'
 import { chatApi, helperApi } from '../services/api'
 import clarkoLogo from '../assets/clarko-logo.png'
@@ -123,6 +123,13 @@ export function EditorWindow() {
           // Group the paragraph's text into runs that share a font, from the textStyle mark.
           const segments: MirrorSegment[] = []
           node.forEach((child) => {
+            // A line break (Shift+Enter) shows as a new line in Clarko's pane too, in the font around it.
+            if (child.type.name === 'hardBreak') {
+              const last = segments.at(-1)
+              if (last) last.text += LINE_BREAK
+              else segments.push({ text: LINE_BREAK, fontFamily: null, fontSize: null })
+              return
+            }
             if (!child.isText || !child.text) return
             const style = child.marks.find((mark) => mark.type.name === 'textStyle')?.attrs
             const fontFamily = typeof style?.fontFamily === 'string' ? style.fontFamily : null
@@ -136,7 +143,7 @@ export function EditorWindow() {
           blocks.push({
             type: node.type.name,
             level: typeof level === 'number' ? level : null,
-            text: node.textContent,
+            text: blockText(node),
             segments,
             reviewable: node.isTextblock && node.type.name !== 'codeBlock',
           })

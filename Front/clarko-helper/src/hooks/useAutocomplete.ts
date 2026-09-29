@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { CompletionService } from '../services/completionService'
-import { getCurrentBlock, isOtherTextField } from './editorBlocks'
+import { blockText, getCurrentBlock, isOtherTextField, textBetween } from './editorBlocks'
 
 const MAX_LINE_CHARS = 500
 const MAX_CONTEXT_CHARS = 1000
@@ -20,7 +20,7 @@ export interface Completion {
 function contextBefore(editor: Editor, blockIndex: number): string {
   const { doc } = editor.state
   const parts: string[] = []
-  for (let i = 0; i < blockIndex; i++) parts.push(doc.child(i).textContent)
+  for (let i = 0; i < blockIndex; i++) parts.push(blockText(doc.child(i)))
   return parts.join('\n').slice(-MAX_CONTEXT_CHARS)
 }
 
@@ -66,8 +66,8 @@ export function useAutocomplete(editor: Editor | null, service: CompletionServic
       if (!block) return
 
       const position = selection.from
-      const before = editor.state.doc.textBetween(block.from, position)
-      const after = editor.state.doc.textBetween(position, block.to)
+      const before = textBetween(editor, block.from, position)
+      const after = textBetween(editor, position, block.to)
       if (!before.trim()) return
 
       // Inside a word ("use|ful") there is no sensible place for new words.

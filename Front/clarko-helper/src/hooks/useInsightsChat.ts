@@ -34,7 +34,7 @@ export function useInsightsChat(service: InsightsService, paragraph: string, con
       inFlight.current = controller
 
       const id = nextId.current++
-      let text = ''
+      let received = ''
       commit([...history, { id, role: 'clarko', content: '', streaming: true }])
       setStreaming(true)
       setFailed(false)
@@ -45,14 +45,14 @@ export function useInsightsChat(service: InsightsService, paragraph: string, con
       try {
         const conversation = { context, history: history.map(({ role, content }) => ({ role, content })) }
         for await (const chunk of service.stream(paragraph, conversation, controller.signal)) {
-          text += chunk
-          update(text, true)
+          received += chunk
+          update(received, true)
         }
-        update(text.trim(), false)
+        update(received.trim(), false)
       } catch {
         if (controller.signal.aborted) return
         // Keep whatever arrived; drop the bubble if nothing did.
-        if (text) update(text.trim(), false)
+        if (received) update(received.trim(), false)
         else commit(messagesRef.current.filter((m) => m.id !== id))
         setFailed(true)
       } finally {
