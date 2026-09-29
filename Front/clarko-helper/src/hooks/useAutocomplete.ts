@@ -12,8 +12,10 @@ export interface Completion {
   position: number
   /** The same spot as a character offset into the paragraph's text, for showing the words in Clarko's pane. */
   offset: number
-  /** Continuations, most likely first. Tab inserts the first one. */
+  /** Continuations, most likely first. */
   options: string[]
+  /** The option Tab inserts: the first one, until the author picks another with Ctrl+Up/Down. */
+  selected: number
 }
 
 /** Earlier blocks, closest last, so the model sees the tone and topic without the whole document. */
@@ -97,6 +99,7 @@ export function useAutocomplete(editor: Editor | null, service: CompletionServic
           position,
           offset: before.length,
           options: fresh.map((option) => (needsSpace && !/\s$/.test(option) ? `${option} ` : option)),
+          selected: 0,
         })
       } catch {
         // Autocomplete is a nice-to-have: failures stay silent and the next pause tries again.
@@ -130,7 +133,7 @@ export function useAutocomplete(editor: Editor | null, service: CompletionServic
   const accept = useCallback(
     (option?: string) => {
       const current = completionRef.current
-      const text = option ?? current?.options[0]
+      const text = option ?? current?.options[current.selected]
       if (!editor || !current || !text) return
 
       setCompletion(null)
@@ -151,6 +154,15 @@ export function useAutocomplete(editor: Editor | null, service: CompletionServic
     editor?.commands.focus()
   }, [editor])
 
+  /** Moves the chosen option up (-1) or down (+1), wrapping around the list. */
+  const choose = useCallback((step: number) => {
+    setCompletion((current) => {
+      if (!current) return current
+      const count = current.options.length
+      return { ...current, selected: (current.selected + step + count) % count }
+    })
+  }, [])
+
   // Same capture-phase listener as the paragraph suggestion, so Tab never indents or leaves the editor.
   useEffect(() => {
     if (!editor) return
@@ -165,6 +177,16 @@ export function useAutocomplete(editor: Editor | null, service: CompletionServic
       }
 
       if (!completionRef.current || event.shiftKey) return
+
+      // Ctrl+Up/Down picks another option while suggestions show (instead of moving between paragraphs).
+      if (event.ctrlKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+        if (isOtherTextField(event.target, editor.view.dom)) return
+        event.preventDefault()
+        event.stopPropagation()
+        choose(event.key === 'ArrowUp' ? -1 : 1)
+        return
+      }
+
       if (event.key !== 'Tab' && event.key !== 'Escape') return
       if (isOtherTextField(event.target, editor.view.dom)) return
 
@@ -176,7 +198,7 @@ export function useAutocomplete(editor: Editor | null, service: CompletionServic
 
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [editor, accept, dismiss])
+  }, [editor, accept, dismiss, choose])
 
   return { completion, accept, dismiss }
 }

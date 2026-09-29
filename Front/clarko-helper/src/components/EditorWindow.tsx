@@ -77,10 +77,34 @@ export function EditorWindow() {
   const documentSearch = useDocumentSearch(editor, clarkoPane)
   const [searchOpen, setSearchOpen] = useState(false)
   const openSearch = () => {
+    if (searchOpen) {
+      // Already open (e.g. Ctrl+F again): back to the search box, ready to type over the last search.
+      document.querySelector<HTMLInputElement>('.search-dialog__input')?.select()
+      return
+    }
     selectionPopup.current?.close()
     setInsightsFor(null)
     setSearchOpen(true)
   }
+
+  // Ctrl+F (Cmd+F on a Mac) while writing opens Clarko Searching instead of the browser's find bar.
+  // Only while the editor has focus: elsewhere the browser keeps its own Ctrl+F.
+  const openSearchRef = useRef(openSearch)
+  useEffect(() => {
+    openSearchRef.current = openSearch
+  })
+  useEffect(() => {
+    if (!editor) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== 'f') return
+      if (!editor.view.hasFocus()) return
+      event.preventDefault()
+      event.stopPropagation()
+      openSearchRef.current()
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [editor])
   const closeSearch = () => {
     setSearchOpen(false)
     documentSearch.clear()

@@ -1,4 +1,4 @@
-import type { CSSProperties, KeyboardEvent } from 'react'
+import { useLayoutEffect, useRef, type CSSProperties, type KeyboardEvent } from 'react'
 import clarkoHead from '../assets/clarko-head.png'
 import type { Completion } from '../hooks/useAutocomplete'
 import type { SearchHit } from '../hooks/useDocumentSearch'
@@ -92,6 +92,66 @@ function HighlightedText({ segments, hits }: { segments: MirrorSegment[]; hits: 
   )
 }
 
+/** Space kept between the options menu and the edge of Clarko's pane. */
+const MENU_EDGE_GAP = 12
+
+interface CompletionMenuProps {
+  completion: Completion
+  onAccept: (option: string) => void
+}
+
+/**
+ * The options under the suggested words. It opens below them, starting at the words, and slides left
+ * when that would run past the right edge of Clarko's pane, so it is never cut off.
+ */
+function CompletionMenu({ completion, onAccept }: CompletionMenuProps) {
+  const menuRef = useRef<HTMLSpanElement>(null)
+  const optionsKey = completion.options.join('\u0000')
+
+  // Measured before paint, so the menu never flashes in the clipped position.
+  useLayoutEffect(() => {
+    const menu = menuRef.current
+    const pane = menu?.closest('.pane__body')
+    if (!menu || !pane) return
+    menu.style.left = '0px'
+    const paneBox = pane.getBoundingClientRect()
+    const box = menu.getBoundingClientRect()
+    const overflow = box.right - (paneBox.right - MENU_EDGE_GAP)
+    const room = box.left - (paneBox.left + MENU_EDGE_GAP)
+    if (overflow > 0) menu.style.left = `${-Math.min(overflow, Math.max(room, 0))}px`
+  }, [optionsKey, completion.selected])
+
+  const several = completion.options.length > 1
+  return (
+    <span
+      ref={menuRef}
+      className="completion"
+      aria-live="polite"
+      // Keep clicks and keys here from reaching the paragraph, which would select it for review.
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      {completion.options.map((option, optionIndex) => {
+        const chosen = optionIndex === completion.selected
+        return (
+          <button
+            key={option}
+            type="button"
+            className={chosen ? 'completion__option is-primary' : 'completion__option'}
+            aria-current={chosen}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => onAccept(option)}
+          >
+            {option.trim()}
+            {chosen && <kbd>Tab</kbd>}
+          </button>
+        )
+      })}
+      <span className="completion__hint">{several ? 'Ctrl+↑↓ to choose · Tab to insert' : 'Tab to insert · Esc to dismiss'}</span>
+    </span>
+  )
+}
+
 /** A magnifying glass, drawn in the current text color. */
 function SearchIcon() {
   return (
@@ -165,7 +225,14 @@ export function CoAuthorPane({
         <span className="presence presence--ai" aria-hidden="true" />
         <img className="pane__avatar" src={clarkoHead} alt="" aria-hidden="true" />
         <span className="pane__name">Clarko</span>
-        <button type="button" className="pane__search" title="Search the document" aria-label="Search the document" onClick={onOpenSearch}>
+        <button
+          type="button"
+          className="pane__search"
+          title="Search the document (Ctrl+F)"
+          aria-label="Search the document"
+          aria-keyshortcuts="Control+F"
+          onClick={onOpenSearch}
+        >
           <SearchIcon />
         </button>
         <span className="pane__status" aria-live="polite">
@@ -173,117 +240,102 @@ export function CoAuthorPane({
         </span>
       </header>
 
-      <div className="pane__body mirror" ref={bodyRef}>
-        {blocks.map((block, index) => {
-          const hasCompletion = completion?.blockIndex === index
-          const isSelected = selectedBlock === index
-          const canReview = block.reviewable && block.text.trim() !== ''
+      {/* Same structure as the author's pane: a scrolling body with the text column inside it, so short
+          text starts at the same place on both sides and lines wrap at the same width. */}
+      <div className="pane__body" ref={bodyRef}>
+        <div className="mirror">
+          {blocks.map((block, index) => {
+            const hasCompletion = completion?.blockIndex === index
+            const isSelected = selectedBlock === index
+            const canReview = block.reviewable && block.text.trim() !== ''
 
-          const select = () => canReview && onSelectBlock(index)
-          const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return
-            event.preventDefault()
-            select()
-          }
+            const select = () => canReview && onSelectBlock(index)
+            const onKeyDown = (event: KeyboardEvent) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return
+              event.preventDefault()
+              select()
+            }
 
-          const [before, after] = hasCompletion ? splitSegments(block.segments, completion.offset) : [block.segments, []]
-          const insightsOpen = canReview && insightsFor === index
+            const [before, after] = hasCompletion ? splitSegments(block.segments, completion.offset) : [block.segments, []]
+            const insightsOpen = canReview && insightsFor === index
 
-          return (
-            <div key={index} className={insightsOpen ? `${blockClassName(block)} has-insights` : blockClassName(block)}>
-              {canReview && (
-                <button
-                  type="button"
-                  className={insightsOpen ? 'insights-button is-open' : 'insights-button'}
-                  aria-haspopup="dialog"
-                  aria-expanded={insightsOpen}
-                  aria-label={`Clarko's insights on paragraph ${index + 1}`}
-                  onClick={() => (insightsOpen ? onCloseInsights() : onOpenInsights(index))}
-                >
-                  <span aria-hidden="true">✨</span> Insights
-                </button>
-              )}
-              {insightsOpen && (
-                <InsightsPopup
-                  // A fresh conversation for each paragraph.
-                  key={index}
-                  service={insights}
-                  paragraph={block.text}
-                  context={blocks
-                    .slice(0, index)
-                    .map((earlier) => earlier.text)
-                    .join('\n')
-                    .slice(-INSIGHTS_CONTEXT_CHARS)}
-                  onClose={onCloseInsights}
-                  onGoToActions={() => {
-                    onCloseInsights()
-                    onSelectBlock(index)
-                  }}
-                />
-              )}
-              <div
-                className={canReview ? 'mirror__text is-reviewable' : 'mirror__text'}
-                data-block-index={index}
-                role={canReview ? 'button' : undefined}
-                tabIndex={canReview ? 0 : undefined}
-                aria-label={canReview ? `Review paragraph ${index + 1}` : undefined}
-                aria-pressed={canReview ? isSelected : undefined}
-                title={canReview ? 'Review this paragraph' : undefined}
-                // Keep focus in the editor's flow: the click selects the paragraph there instead.
-                onMouseDown={(event) => canReview && event.preventDefault()}
-                onClick={select}
-                onKeyDown={canReview ? onKeyDown : undefined}
-              >
-                {isSelected ? (
-                  <div className="mirror__selected">
-                    <ClarkoCaret span />
-                    <span className="mirror__selection">
-                      <StyledText segments={block.segments} />
-                    </span>
-                  </div>
-                ) : searchHits.some((hit) => hit.paragraph === index) ? (
-                  <HighlightedText segments={block.segments} hits={searchHits.filter((hit) => hit.paragraph === index)} />
-                ) : !block.text ? (
-                  ' '
-                ) : (
-                  <>
-                    <StyledText segments={before} />
-                    {hasCompletion && (
-                      // The options hang right under the suggested words, over the text below them.
-                      <span className="mirror__ghost-anchor">
-                        <ClarkoCaret />
-                        <span className="mirror__ghost" style={fontBefore(before)}>
-                          {completion.options[0]}
-                        </span>
-                        <span
-                          className="completion"
-                          aria-live="polite"
-                          // Keep clicks and keys here from reaching the paragraph, which would select it for review.
-                          onClick={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => event.stopPropagation()}
-                        >
-                          {completion.options.map((option, optionIndex) => (
-                            <button
-                              key={option}
-                              type="button"
-                              className={optionIndex === 0 ? 'completion__option is-primary' : 'completion__option'}
-                              onMouseDown={(event) => event.preventDefault()}
-                              onClick={() => onAcceptCompletion(option)}
-                            >
-                              {option.trim()}
-                              {optionIndex === 0 && <kbd>Tab</kbd>}
-                            </button>
-                          ))}
-                        </span>
-                      </span>
-                    )}
-                    <StyledText segments={after} />
-                  </>
+            return (
+              <div key={index} className={insightsOpen ? `${blockClassName(block)} has-insights` : blockClassName(block)}>
+                {canReview && (
+                  <button
+                    type="button"
+                    className={insightsOpen ? 'insights-button is-open' : 'insights-button'}
+                    aria-haspopup="dialog"
+                    aria-expanded={insightsOpen}
+                    aria-label={`Clarko's insights on paragraph ${index + 1}`}
+                    onClick={() => (insightsOpen ? onCloseInsights() : onOpenInsights(index))}
+                  >
+                    <span aria-hidden="true">✨</span> Insights
+                  </button>
                 )}
+                {insightsOpen && (
+                  <InsightsPopup
+                    // A fresh conversation for each paragraph.
+                    key={index}
+                    service={insights}
+                    paragraph={block.text}
+                    context={blocks
+                      .slice(0, index)
+                      .map((earlier) => earlier.text)
+                      .join('\n')
+                      .slice(-INSIGHTS_CONTEXT_CHARS)}
+                    onClose={onCloseInsights}
+                    onGoToActions={() => {
+                      onCloseInsights()
+                      onSelectBlock(index)
+                    }}
+                  />
+                )}
+                <div
+                  className={canReview ? 'mirror__text is-reviewable' : 'mirror__text'}
+                  data-block-index={index}
+                  role={canReview ? 'button' : undefined}
+                  tabIndex={canReview ? 0 : undefined}
+                  aria-label={canReview ? `Review paragraph ${index + 1}` : undefined}
+                  aria-pressed={canReview ? isSelected : undefined}
+                  title={canReview ? 'Review this paragraph' : undefined}
+                  // Keep focus in the editor's flow: the click selects the paragraph there instead.
+                  onMouseDown={(event) => canReview && event.preventDefault()}
+                  onClick={select}
+                  onKeyDown={canReview ? onKeyDown : undefined}
+                >
+                  {isSelected ? (
+                    <div className="mirror__selected">
+                      <ClarkoCaret span />
+                      <span className="mirror__selection">
+                        <StyledText segments={block.segments} />
+                      </span>
+                    </div>
+                  ) : searchHits.some((hit) => hit.paragraph === index) ? (
+                    <HighlightedText segments={block.segments} hits={searchHits.filter((hit) => hit.paragraph === index)} />
+                  ) : !block.text ? (
+                    ' '
+                  ) : (
+                    <>
+                      <StyledText segments={before} />
+                      {hasCompletion && (
+                        // The options hang right under the suggested words, over the text below them.
+                        <span className="mirror__ghost-anchor">
+                          <ClarkoCaret />
+                          <span className="mirror__ghost" style={fontBefore(before)}>
+                            {completion.options[completion.selected]}
+                          </span>
+                          <CompletionMenu completion={completion} onAccept={onAcceptCompletion} />
+                        </span>
+                      )}
+                      <StyledText segments={after} />
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
     </section>
   )
