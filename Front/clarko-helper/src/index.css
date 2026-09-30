@@ -931,6 +931,14 @@ body,
   z-index: 20;
 }
 
+/* Capped to the space left on screen where it opened; content that grows past that scrolls inside. */
+.selection-popup {
+  max-height: var(--selection-popup-max-height, calc(100vh - 32px));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(214, 196, 255, 0.22) transparent;
+}
+
 .selection-popup__actions,
 .selection-popup__row,
 .selection-popup__ask {
@@ -1164,6 +1172,23 @@ body,
 }
 
 .selection-popup__input::placeholder { color: var(--ink-faint); }
+
+/* Ask / Refine / Try another: the popup's yellow action, like Find in search and Add command. */
+.selection-popup__refine:not(:disabled) {
+  font-weight: 600;
+  color: #2a1a00;
+  background: #ffd23f;
+  border-color: #ffd23f;
+}
+
+.selection-popup__refine:not(:disabled):hover {
+  background: #ffe066;
+}
+
+.selection-popup__input:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
 
 .selection-popup__input:focus-visible {
   outline: 2px solid var(--user);
