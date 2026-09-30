@@ -50,7 +50,7 @@ public static class HelperEndpoints
         if (problem is not null) return problem;
         budget.RecordSpend(response!.Usage);
 
-        return TypedResults.Ok(new NextWordResponse(prompts.ParseNextWords(response!.FirstContent)));
+        return TypedResults.Ok(new NextWordResponse(prompts.ParseNextWords(response!.FirstContent, request.Line)));
     }
 
     /// <summary>Rewrites the selected text following the author's instruction (GPT-4o: better rewrites).</summary>
