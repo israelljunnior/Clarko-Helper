@@ -19,11 +19,7 @@ import { SuggestionService } from '../services/suggestionService'
 import { chatApi, helperApi } from '../services/api'
 import clarkoLogo from '../assets/clarko-logo.png'
 
-const INITIAL_CONTENT = `
-<h1>A first draft</h1>
-<p>Start writing here. Press Ctrl+Space and Clarko suggests your next words. Click a paragraph on the right to have it reviewed.</p>
-<p>try it: i think this editor is very usefull  when you dont have time to proofread .</p>
-`
+const INITIAL_CONTENT = ``
 
 interface DocumentSnapshot {
   blocks: MirrorBlock[]
