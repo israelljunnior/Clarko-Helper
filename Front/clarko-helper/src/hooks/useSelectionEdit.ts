@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
-import { TextSelection, type EditorState } from '@tiptap/pm/state'
+import { TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state'
+import { Fragment, Slice, type Mark, type Node as ProseMirrorNode, type Schema } from '@tiptap/pm/model'
 import type { SuggestionService, TextSuggestion } from '../services/suggestionService'
 import { ApiError } from '../services/api'
+import { LINE_BREAK } from './editorBlocks'
 
 const ANOTHER_VERSION = 'Give me a different version'
+
+/** How the end of one paragraph and the start of the next read in a selection sent to Clarko. */
+const PARAGRAPH_BREAK = '\n\n'
+/** The API accepts up to this much context around the selection. */
+const MAX_CONTEXT_LENGTH = 4_000
 
 export type SelectionPhase = 'loading' | 'ready' | 'unchanged' | 'error'
 
@@ -26,15 +33,61 @@ export interface SelectionSession extends SelectionRange {
   error?: string
 }
 
-/** A selection the AI can edit: non-empty text inside a single paragraph or heading. */
+/** The document's text between two positions: paragraphs separated by a blank line, line breaks as "\n". */
+function selectedText(doc: ProseMirrorNode, from: number, to: number): string {
+  return doc.textBetween(from, to, PARAGRAPH_BREAK, LINE_BREAK)
+}
+
+/**
+ * A selection the AI can edit: non-empty text in one paragraph or heading, or running across several.
+ * Code blocks are left alone.
+ */
 export function getEditableSelection(state: EditorState): SelectionRange | null {
   const { from, to, empty, $from, $to } = state.selection
-  if (empty || !$from.sameParent($to)) return null
-  if (!$from.parent.isTextblock || $from.parent.type.name === 'codeBlock') return null
+  if (empty || !$from.parent.isTextblock || !$to.parent.isTextblock) return null
 
-  const original = state.doc.textBetween(from, to, '\n')
+  let touchesCode = false
+  state.doc.nodesBetween(from, to, (node) => {
+    if (node.type.name === 'codeBlock') touchesCode = true
+    return !touchesCode
+  })
+  if (touchesCode) return null
+
+  const original = selectedText(state.doc, from, to)
   if (!original.trim()) return null
-  return { from, to, original, context: $from.parent.textContent }
+
+  // The whole paragraph(s) the selection sits in, for tone and meaning.
+  const context = selectedText(state.doc, $from.start(), $to.end()).slice(0, MAX_CONTEXT_LENGTH)
+  return { from, to, original, context }
+}
+
+/** One paragraph's text as inline content: "\n" becomes a line break, and the text keeps `marks`. */
+function inlineContent(schema: Schema, text: string, marks: readonly Mark[]): ProseMirrorNode[] {
+  const nodes: ProseMirrorNode[] = []
+  text.split(LINE_BREAK).forEach((line, i) => {
+    if (i > 0) nodes.push(schema.nodes.hardBreak ? schema.nodes.hardBreak.create() : schema.text(LINE_BREAK))
+    if (line) nodes.push(schema.text(line, marks))
+  })
+  return nodes
+}
+
+/**
+ * Puts `revised` in place of from–to. A blank line in it starts a new paragraph, so a rewrite can merge,
+ * split or keep the selected paragraphs; the first and last join the blocks the selection started and
+ * ended in, like pasting. Returns the position just after the new text.
+ */
+function replaceWithText(tr: Transaction, from: number, to: number, revised: string): number {
+  const { schema } = tr.doc.type
+  const marks = tr.doc.resolve(from).marks()
+  const paragraphs = revised.split(/\n{2,}/)
+
+  if (paragraphs.length === 1) {
+    tr.replaceWith(from, to, inlineContent(schema, revised, marks))
+  } else {
+    const blocks = paragraphs.map((text) => schema.nodes.paragraph.create(null, inlineContent(schema, text, marks)))
+    tr.replaceRange(from, to, new Slice(Fragment.from(blocks), 1, 1))
+  }
+  return tr.mapping.map(to)
 }
 
 export function useSelectionEdit(editor: Editor, service: SuggestionService) {
@@ -115,14 +168,14 @@ export function useSelectionEdit(editor: Editor, service: SuggestionService) {
 
     const { from, to, original, suggestion } = current
     close()
-    if (editor.state.doc.textBetween(from, to, '\n') !== original) return
+    if (selectedText(editor.state.doc, from, to) !== original) return
 
     editor
       .chain()
       .focus()
       .command(({ tr }) => {
-        tr.insertText(suggestion.revised, from, to)
-        tr.setSelection(TextSelection.create(tr.doc, from + suggestion.revised.length))
+        const end = replaceWithText(tr, from, to, suggestion.revised)
+        tr.setSelection(TextSelection.near(tr.doc.resolve(end)))
         return true
       })
       .run()
