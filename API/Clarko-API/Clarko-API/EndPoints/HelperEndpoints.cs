@@ -191,5 +191,10 @@ public static class HelperEndpoints
                 "The model took too long to answer. Try again.",
                 statusCode: StatusCodes.Status504GatewayTimeout));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The editor cancelled (the author kept typing or closed the popup): a normal outcome, not an error.
+            return (null, RequestCancellation.ClientClosed());
+        }
     }
 }

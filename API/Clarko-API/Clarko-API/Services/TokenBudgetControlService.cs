@@ -88,6 +88,11 @@ public sealed class TokenBudgetControlService(
             logger.LogWarning(exception, "Could not read the OpenRouter key budget");
             return null;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The editor cancelled the request that needed the budget; nothing went wrong.
+            return null;
+        }
     }
 
     /// <summary>The key's usage and remaining limit, adjusted by each response's cost until the next refresh.</summary>

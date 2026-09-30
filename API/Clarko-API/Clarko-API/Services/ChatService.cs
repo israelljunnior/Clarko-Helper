@@ -61,6 +61,11 @@ public sealed class ChatService(
         {
             return (null, Problem("The model took too long to answer. Try again.", StatusCodes.Status504GatewayTimeout));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The editor closed the popup (or, in development, mounted it twice): nothing to answer.
+            return (null, RequestCancellation.ClientClosed());
+        }
 
         if (!response.IsSuccessStatusCode)
         {
