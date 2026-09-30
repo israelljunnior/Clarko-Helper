@@ -31,6 +31,9 @@ const MAX_COMMAND_LENGTH = 15
 const MAX_INSTRUCTION_LENGTH = 300
 const INSTRUCTION_HELP = 'What Clarko should do with the selected text, like "Add a few friendly emojis".'
 
+/** The popup never shrinks below this; past it, its content scrolls. */
+const MIN_POPUP_HEIGHT = 160
+
 const QUICK_ACTIONS: QuickAction[] = [
   {
     label: 'Fix grammar',
@@ -130,13 +133,26 @@ export function SelectionPopup({ editor, service, scrollTarget, anchor, onShow, 
       strategy: 'fixed' as const,
       placement: 'bottom-start' as const,
       offset: 8,
-      flip: { boundary, padding: 8 },
+      // Above or below the text, whichever has room on screen. Measured against the browser window: the
+      // editor window's backdrop blur makes it the reference for fixed positions, which skews pane-based checks.
+      flip: { padding: 8 },
+      // Sideways, it stays inside the pane it belongs to.
       shift: { boundary, padding: 12 },
+      // It stays where it opened: when its content grows (a result, the new-command section), it scrolls
+      // inside rather than moving. The cap is the space left on screen when it was placed.
+      size: {
+        padding: 8,
+        apply: ({ availableHeight, elements }: { availableHeight: number; elements: { floating: HTMLElement } }) => {
+          const height = Math.max(MIN_POPUP_HEIGHT, Math.floor(availableHeight))
+          elements.floating.style.setProperty('--selection-popup-max-height', `${height}px`)
+        },
+      },
       scrollTarget: boundary,
       onShow,
       onHide,
     }
   }, [boundaryElement, onShow, onHide])
+
 
   // The popup never gets wider than the pane it lives in.
   const [paneWidth, setPaneWidth] = useState<number | null>(null)
@@ -148,11 +164,20 @@ export function SelectionPopup({ editor, service, scrollTarget, anchor, onShow, 
   }, [boundaryElement])
   const popupStyle = paneWidth ? { width: `min(440px, ${Math.max(paneWidth - 24, 240)}px)` } : undefined
 
+  /** Clarko is rewriting: the refine row stays visible but waits. */
+  const working = edit.session?.phase === 'loading'
+
+  const askInputRef = useRef<HTMLInputElement>(null)
+
   const submit = () => {
     const instruction = draft.trim()
+    if (!edit.session && !instruction) {
+      askInputRef.current?.focus() // nothing to ask yet: point the author at the box
+      return
+    }
     setDraft('')
     if (edit.session) edit.refine(instruction)
-    else if (instruction) edit.start(instruction)
+    else edit.start(instruction)
   }
 
   /**
@@ -249,24 +274,29 @@ export function SelectionPopup({ editor, service, scrollTarget, anchor, onShow, 
           </>
         )}
 
-        {edit.session?.phase !== 'loading' && (
-          <div className="selection-popup__ask">
-            <input
-              className="selection-popup__input"
-              value={draft}
-              maxLength={MAX_INSTRUCTION_LENGTH}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && submit()}
-              placeholder={edit.session ? 'Refine it: shorter, add an example…' : 'Or tell Clarko what to change…'}
-              aria-label={edit.session ? 'Refine the suggestion' : 'Instruction for Clarko'}
-            />
-            {edit.session && (
-              <button type="button" className="button" onClick={submit}>
-                {draft.trim() ? 'Refine' : 'Try another'}
-              </button>
-            )}
-          </div>
-        )}
+        {/* Always shown, so the popup doesn't jump; while Clarko is working it is paused rather than hidden. */}
+        <div className="selection-popup__ask">
+          <input
+            ref={askInputRef}
+            className="selection-popup__input"
+            value={draft}
+            maxLength={MAX_INSTRUCTION_LENGTH}
+            disabled={working}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => event.key === 'Enter' && !working && submit()}
+            placeholder={edit.session ? 'Refine it: shorter, add an example…' : 'Or tell Clarko what to change…'}
+            aria-label={edit.session ? 'Refine the suggestion' : 'Instruction for Clarko'}
+          />
+          {/* Before a result: "Ask" sends a custom instruction. After: "Refine" (or "Try another" when empty). */}
+          <button
+            type="button"
+            className="button selection-popup__refine"
+            onClick={submit}
+            disabled={working}
+          >
+            {working ? 'Working…' : !edit.session ? 'Ask' : draft.trim() ? 'Refine' : 'Try another'}
+          </button>
+        </div>
       </div>
     </BubbleMenu>
   )
@@ -301,15 +331,18 @@ function NewCommandForm({ taken, onAdd, onCancel }: NewCommandFormProps) {
   const [instruction, setInstruction] = useState('')
   const labelId = useId()
   const instructionId = useId()
+  const labelRef = useRef<HTMLInputElement>(null)
+  const instructionRef = useRef<HTMLInputElement>(null)
 
   const trimmedLabel = label.trim()
   const trimmedInstruction = instruction.trim()
   const duplicate = taken.some((existing) => existing.toLowerCase() === trimmedLabel.toLowerCase())
-  const canSave = trimmedLabel !== '' && trimmedInstruction !== '' && !duplicate
-
   const save = (event: FormEvent) => {
     event.preventDefault()
-    if (canSave) onAdd(trimmedLabel, trimmedInstruction)
+    // Always clickable: whatever is still missing gets the focus instead.
+    if (!trimmedLabel || duplicate) return labelRef.current?.focus()
+    if (!trimmedInstruction) return instructionRef.current?.focus()
+    onAdd(trimmedLabel, trimmedInstruction)
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -332,6 +365,7 @@ function NewCommandForm({ taken, onAdd, onCancel }: NewCommandFormProps) {
           </span>
         </div>
         <input
+          ref={labelRef}
           id={labelId}
           className="selection-popup__input"
           value={label}
@@ -352,6 +386,7 @@ function NewCommandForm({ taken, onAdd, onCancel }: NewCommandFormProps) {
           <InfoTip text={INSTRUCTION_HELP} />
         </div>
         <input
+          ref={instructionRef}
           id={instructionId}
           className="selection-popup__input"
           value={instruction}
@@ -365,7 +400,7 @@ function NewCommandForm({ taken, onAdd, onCancel }: NewCommandFormProps) {
         <button type="button" className="button button--quiet" onClick={onCancel}>
           Cancel
         </button>
-        <button type="submit" className="button new-command__save" disabled={!canSave}>
+        <button type="submit" className="button new-command__save">
           Add command
         </button>
       </div>
