@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { budgetApi, type BudgetResponse } from '../services/api'
 
 /** Pause between the end of one budget call and the start of the next. */
-const REFRESH_MS = 10_000
+const REFRESH_MS = 5_000
 
 type Listener = () => void
 
