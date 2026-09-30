@@ -1127,7 +1127,30 @@ body,
 
 .selection-popup__note--error { color: var(--delete); }
 
-.selection-popup__row .suggestion__reason { flex: 1 1 140px; }
+/* Why Clarko suggests the change, on its own line between the changes and the buttons. */
+.selection-popup__reason {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  color: var(--coauthor);
+}
+
+.selection-popup__reason-label {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #2a1a00;
+  background: var(--coauthor);
+  border-radius: 4px;
+}
+
+.selection-popup__row--end {
+  justify-content: flex-end;
+}
 
 .selection-popup__input {
   flex: 1 1 200px;
@@ -1165,6 +1188,21 @@ kbd {
   font-size: 12px;
   color: var(--ink-muted);
   border-top: 1px solid var(--divider);
+}
+
+/* The character count against the 10,000 limit: orange when close, red when full. */
+.window__count {
+  margin: 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.window__count.is-near {
+  color: var(--coauthor);
+}
+
+.window__count.is-full {
+  font-weight: 600;
+  color: var(--delete);
 }
 
 @media (max-width: 820px) {

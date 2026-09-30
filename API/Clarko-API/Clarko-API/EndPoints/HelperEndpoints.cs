@@ -91,9 +91,10 @@ public static class HelperEndpoints
     }
 
     /// <summary>
-    /// Finds the query in the document. Exact matches come first and need no model, so they are instant,
-    /// free and always the same; only when there are none does the search model look for related content,
-    /// at temperature 0 with a fixed seed, and every quote it returns is checked against the document.
+    /// Finds the query in the document. A position ("third paragraph", "line 5", "character 500") or exact
+    /// text is found without the model, so those are instant, free and always the same; only when neither
+    /// applies does the search model look for related content (or positions phrased another way), at
+    /// temperature 0 with a fixed seed, and every quote it returns is checked against the document.
     /// </summary>
     private static async Task<Results<Ok<SearchResponse>, ValidationProblem, ProblemHttpResult>> SearchDocumentAsync(
         SearchRequest request,
@@ -106,6 +107,14 @@ public static class HelperEndpoints
     {
         var validation = prompts.ValidateSearch(request);
         if (!validation.IsValid) return TypedResults.ValidationProblem(validation.Errors);
+
+        var position = DocumentSearch.FindByPosition(request.Query, request.Paragraphs);
+        if (position is not null)
+        {
+            return TypedResults.Ok(new SearchResponse(
+                position.Count > 0 ? SearchResponse.PositionKind : SearchResponse.NoneKind,
+                position));
+        }
 
         var exact = DocumentSearch.FindExact(request.Query, request.Paragraphs);
         if (exact.Count > 0) return TypedResults.Ok(new SearchResponse(SearchResponse.ExactKind, exact));

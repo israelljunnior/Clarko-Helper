@@ -22,8 +22,9 @@ interface SearchPopupProps {
 function summary(status: SearchStatus, result: SearchResponse | null): string {
   if (status === 'searching') return 'Clarko is looking through your document…'
   if (status === 'error') return "The search didn't go through. Try again."
-  if (!result) return 'Find exact text, or related ideas when there is no exact match.'
+  if (!result) return 'Ctrl+F to Find text, an idea, or a place like "third paragraph" or "character 500".'
   const count = result.matches.length
+  if (result.kind === 'position') return result.matches[0]?.reason ?? 'Found by position'
   if (result.kind === 'exact') return `${count} exact ${count === 1 ? 'match' : 'matches'}`
   if (result.kind === 'related') return `No exact match. ${count} related ${count === 1 ? 'passage' : 'passages'}:`
   return 'Nothing in the document matches or relates to that.'
@@ -63,7 +64,7 @@ export function SearchPopup({ status, result, current, paragraphs, onSearch, onS
           className="search-dialog__input"
           value={query}
           maxLength={MAX_QUERY_LENGTH}
-          placeholder="Text or idea to find in your document…"
+          placeholder="Text, idea or place (e.g. third paragraph, line 5)…"
           aria-label="What to search for"
           autoFocus
           onChange={(event) => setQuery(event.target.value)}

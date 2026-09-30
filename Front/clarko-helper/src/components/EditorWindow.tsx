@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Highlight from '@tiptap/extension-highlight'
 import TextAlign from '@tiptap/extension-text-align'
 import { FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
+import { CharacterCount } from '@tiptap/extensions'
 import { MenuBar } from './MenuBar'
 import { BudgetIndicator } from './BudgetIndicator'
 import { CoAuthorPane, type MirrorBlock, type MirrorSegment } from './CoAuthorPane'
@@ -32,6 +33,11 @@ interface DocumentSnapshot {
 }
 
 const EMPTY_SNAPSHOT: DocumentSnapshot = { blocks: [], words: 0, characters: 0, lines: 0 }
+
+/** The most characters the document can hold; typing and pasting stop there. */
+const MAX_CHARACTERS = 10_000
+/** From this share of the limit, the footer's count turns orange as a heads-up. */
+const NEAR_LIMIT = 0.9
 
 export function EditorWindow() {
   // Both AI helpers talk to the Clarko API; its address comes from src/environments/environment.ts.
@@ -64,6 +70,7 @@ export function EditorWindow() {
       FontFamily,
       FontSize,
       SearchHighlight,
+      CharacterCount.configure({ limit: MAX_CHARACTERS }),
     ],
     content: INITIAL_CONTENT,
     editorProps: {
@@ -178,7 +185,8 @@ export function EditorWindow() {
         return {
           blocks,
           words: trimmed ? trimmed.split(/\s+/).length : 0,
-          characters: text.replace(/\n/g, '').length,
+          // The same count the limit enforces, so the footer never disagrees with it.
+          characters: current.storage.characterCount.characters(),
           lines: doc.childCount,
         }
       },
@@ -286,7 +294,20 @@ export function EditorWindow() {
           </div>
 
           <footer className="window__footer">
-            {snapshot.words} Words • {snapshot.characters} Characters • {snapshot.lines} Lines
+            {snapshot.words} Words •{' '}
+            <span
+              className={
+                snapshot.characters >= MAX_CHARACTERS
+                  ? 'window__count is-full'
+                  : snapshot.characters >= MAX_CHARACTERS * NEAR_LIMIT
+                    ? 'window__count is-near'
+                    : 'window__count'
+              }
+              title={snapshot.characters >= MAX_CHARACTERS ? 'The document is at its limit.' : undefined}
+            >
+              {snapshot.characters.toLocaleString('en-US')} / {MAX_CHARACTERS.toLocaleString('en-US')} Characters
+            </span>{' '}
+            • {snapshot.lines} Lines
           </footer>
 
           {searchOpen && (

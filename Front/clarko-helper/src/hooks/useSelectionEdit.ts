@@ -20,6 +20,8 @@ export interface SelectionSession extends SelectionRange {
   versions: (string | null)[]
   phase: SelectionPhase
   suggestion: TextSuggestion | null
+  /** Why Clarko suggested this, or why it saw nothing to change ('unchanged'). */
+  reason?: string
   /** What went wrong, when `phase` is 'error'. */
   error?: string
 }
@@ -59,7 +61,7 @@ export function useSelectionEdit(editor: Editor, service: SuggestionService) {
       commit({ ...next, phase: 'loading', suggestion: null })
 
       try {
-        const suggestion = await service.suggestForSelection(
+        const { suggestion, reason } = await service.suggestForSelection(
           {
             selectedText: next.original,
             context: next.context,
@@ -69,7 +71,7 @@ export function useSelectionEdit(editor: Editor, service: SuggestionService) {
           controller.signal,
         )
         if (controller.signal.aborted) return
-        commit({ ...next, phase: suggestion ? 'ready' : 'unchanged', suggestion })
+        commit({ ...next, phase: suggestion ? 'ready' : 'unchanged', suggestion, reason })
       } catch (error) {
         if (controller.signal.aborted) return
         const message = error instanceof ApiError ? error.message : 'Something went wrong. Try again.'

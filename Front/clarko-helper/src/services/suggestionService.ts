@@ -5,6 +5,12 @@ export interface TextSuggestion {
   reason: string
 }
 
+/** Clarko's answer for a selection: the rewrite (null when nothing should change) and why. */
+export interface SelectionOutcome {
+  suggestion: TextSuggestion | null
+  reason: string
+}
+
 export interface SelectionEditRequest {
   selectedText: string
   /** The paragraph around the selection, sent for context only. */
@@ -26,9 +32,9 @@ export class SuggestionService {
     this.api = api
   }
 
-  async suggestForSelection(request: SelectionEditRequest, signal?: AbortSignal): Promise<TextSuggestion | null> {
+  async suggestForSelection(request: SelectionEditRequest, signal?: AbortSignal): Promise<SelectionOutcome> {
     const instruction = request.steps.at(-1)
-    if (!instruction) return null
+    if (!instruction) return { suggestion: null, reason: '' }
 
     // Earlier steps become the history, so "shorter" then "more formal" build on each other.
     const history = request.steps.slice(0, -1).map((step, i) => ({
@@ -42,7 +48,8 @@ export class SuggestionService {
     )
 
     const revised = response.revised
-    if (!revised || revised.trim() === request.selectedText.trim()) return null
-    return { revised, reason: response.reason || 'Suggested edit' }
+    const reason = response.reason?.trim() ?? ''
+    if (!revised || revised.trim() === request.selectedText.trim()) return { suggestion: null, reason }
+    return { suggestion: { revised, reason: reason || 'Suggested edit' }, reason }
   }
 }

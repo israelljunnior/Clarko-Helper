@@ -416,8 +416,11 @@ function SessionView({ session, onAccept, onReject, onRetry }: SessionViewProps)
           <div className="selection-popup__diff">
             <DiffText original={session.original} revised={session.suggestion.revised} />
           </div>
-          <div className="selection-popup__row">
-            <span className="suggestion__reason">{session.suggestion.reason}</span>
+          <p className="selection-popup__reason">
+            <span className="selection-popup__reason-label">Why</span>
+            {session.suggestion.reason}
+          </p>
+          <div className="selection-popup__row selection-popup__row--end">
             <button type="button" className="button button--accept" onClick={onAccept} autoFocus>
               Accept <kbd>Enter</kbd>
             </button>
@@ -430,7 +433,9 @@ function SessionView({ session, onAccept, onReject, onRetry }: SessionViewProps)
 
       {session.phase === 'unchanged' && (
         <div className="selection-popup__row">
-          <span className="selection-popup__note">No change needed for that. Try a different instruction.</span>
+          <span className="selection-popup__note">
+            No change needed{session.reason ? `: ${session.reason}` : ' for that'}. Try a different instruction.
+          </span>
           <button type="button" className="button" onClick={onReject}>
             Close <kbd>Esc</kbd>
           </button>

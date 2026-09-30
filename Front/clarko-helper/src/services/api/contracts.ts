@@ -43,8 +43,11 @@ export interface SearchRequest {
 }
 
 export interface SearchResponse {
-  /** "exact": the text itself, found without the model. "related": passages the model judged related. */
-  kind: 'exact' | 'related' | 'none'
+  /**
+   * "position": the query named a place ("third paragraph", "line 5", "character 500"), found without the
+   * model. "exact": the text itself, found without the model. "related": passages the model judged related.
+   */
+  kind: 'position' | 'exact' | 'related' | 'none'
   matches: SearchMatch[]
 }
 
