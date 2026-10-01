@@ -102,6 +102,5 @@ If you change the API's port, change it in `environment.ts` too. If you change t
 | You see | Likely cause |
 | --- | --- |
 | *"Couldn't reach the Clarko API at http://localhost:5294. Is it running?"* | The API isn't running, or runs on another port. |
-| *"The AI budget for this demo is used up"* | The OpenRouter account has no credits for the chosen model, or `TokenBudget:LimitUsd` was reached. |
 | The API stops at startup with *"OpenRouter:ApiKey is missing"* | The key isn't set (see step 2). |
 | `npm run dev` says port 5173 is in use | Another app, or another copy of the editor, uses the port. |
