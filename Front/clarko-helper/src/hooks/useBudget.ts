@@ -3,6 +3,8 @@ import { budgetApi, type BudgetResponse } from '../services/api'
 
 /** Pause between the end of one budget call and the start of the next. */
 const REFRESH_MS = 5_000
+/** After this many failed calls in a row, polling stops for good (until the page is reloaded). */
+const MAX_CONSECUTIVE_FAILURES = 5
 
 type Listener = () => void
 
@@ -17,11 +19,15 @@ class BudgetStore {
   private inFlight: AbortController | null = null
   private timer: ReturnType<typeof setTimeout> | undefined
   private stopTimer: ReturnType<typeof setTimeout> | undefined
+  /** Failed calls in a row; any answer resets it. */
+  private failures = 0
+  /** Set after MAX_CONSECUTIVE_FAILURES: no more calls until the page is reloaded. */
+  private gaveUp = false
 
   subscribe = (listener: Listener) => {
     this.listeners.add(listener)
     clearTimeout(this.stopTimer) // re-subscribed before a scheduled stop, e.g. StrictMode's remount
-    if (this.listeners.size === 1 && !this.inFlight && this.timer === undefined) this.start()
+    if (this.listeners.size === 1 && !this.gaveUp && !this.inFlight && this.timer === undefined) this.start()
 
     return () => {
       this.listeners.delete(listener)
@@ -59,11 +65,20 @@ class BudgetStore {
     this.inFlight = controller
     try {
       this.budget = await budgetApi.getBudget(controller.signal)
+      this.failures = 0
       this.listeners.forEach((listener) => listener())
     } catch {
       // Keep showing the last known budget; the interceptor already reported the error.
+      if (!controller.signal.aborted) this.failures++
     } finally {
       if (this.inFlight === controller) this.inFlight = null
+    }
+
+    // The API keeps failing: stop calling it (and stop the toasts) until the page is reloaded.
+    if (this.failures >= MAX_CONSECUTIVE_FAILURES) {
+      this.gaveUp = true
+      document.removeEventListener('visibilitychange', this.onVisible)
+      return
     }
 
     // Schedule the next call only now that this one is done, and only while someone is listening.
